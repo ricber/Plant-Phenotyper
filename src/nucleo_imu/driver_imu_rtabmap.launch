@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<launch>
+	
+	<rosparam command="load" file="$(find nucleof746zg_IMU_driver)/config/imu_params.yaml"/>
+	<node name="nucleof746zg_driver" pkg="nucleof746zg_IMU_driver" type="nucleof746zg_IMU_driver" output="screen"/>
+	<node name="imu_filter_complementary" pkg="imu_complementary_filter" type="complementary_filter_node" >
+		<!-- <param name="frame_id" value="imu_link" /> --> <!-- frame_id must be changed in the config yaml file -->
+		
+		<remap from="/imu/data_raw" to="f746zg_imu/data_raw" />
+		<remap from="/imu/mag" to="f746zg_imu/mag" />
+		<param name="use_mag" value="true" />
+		<param name="gain_mag" value="0.0005" />
+		<param name="gain_acc" value="0.02" />
+    </node>
+    
+    <!--      TF      -->
+    <node pkg="tf" type="static_transform_publisher" name="imu_link_broadcaster" args="-0.005 0.18 0.02 3.1416 0 0 base_link imu 100" />
+</launch>

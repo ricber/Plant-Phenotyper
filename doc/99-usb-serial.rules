@@ -1,0 +1,7 @@
+KERNEL=="ttyUSB*", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", SYMLINK+="steer", MODE="0777"
+KERNEL=="ttyACM*", ATTRS{idVendor}=="2341", ATTRS{idProduct}=="003d", SYMLINK+="speed", MODE="0777"
+ATTR{idVendor}=="046d", ATTR{idProduct}=="c261", RUN+="usb_modeswitch '%b/%k'"
+
+
+
+

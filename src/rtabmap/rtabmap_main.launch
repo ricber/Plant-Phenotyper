@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<launch>	
+    
+    <arg name="d435" default="false" /> 
+    <arg name="d435_imu" default="false"/> 
+    <arg name="d435_gps_imu" default="false"/> 
+    <arg name="d435_imu_lms100" default="false"/>
+    <arg name="d435_gps_imu_ldmrs" default="false"/> 
+    <arg name="d435_gps_imu_lms100" default="false"/> 
+    
+    
+    
+    <group if="$(arg d435_imu_lms100)">
+        
+        <!-- nucleo imu -->
+        <!-- <include file="$(find nucleof746zg_IMU_driver)/launch/nucleo_filter.launch" />	-->
+        <include file="$(find plant-phenotyper)/src/nucleo_imu/nucleo_filter.launch" />
+        
+        <include file="$(find plant-phenotyper)/src/robot_localization/imu_robot_localization.launch" />
+        
+        <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch" />
+        
+        <!-- PARAMETERS OVERRIDE -->
+        <!-- <param name="/rtabmap/rtabmap/Reg/Force3DoF"       type="string"   value="false"/> -->
+    
+    </group>
+    
+    <group if="$(arg d435_gps_imu_lms100)">
+		
+        <!-- nucleo imu -->
+        <include file="$(find plant-phenotyper)/src/nucleo_imu/nucleo_filter.launch" />	
+            
+        <include file="$(find plant-phenotyper)/src/robot_localization/gps_robot_localization.launch" />
+        
+        <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch" />
+        <!-- PARAMETERS OVERRIDE -->
+        <!-- <param name="/rtabmap/rtabmap/Reg/Force3DoF"       type="string"   value="false"/> -->
+    
+    </group>
+    
+</launch>

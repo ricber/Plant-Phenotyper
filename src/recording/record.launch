@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<launch>
+    
+    <!-- realsense D435i camera with IMU data -->
+    <include file="$(find realsense2_camera)/launch/rs_camera_rtabmap_imu.launch" />
+    
+    <!-- GPS -->
+    <include file="$(find nmea_navsat_driver)/launch/nmea_serial_driver_rtabmap.launch" />
+    
+    <!-- lidar LMS100 -->
+    <include file="$(find lms1xx)/launch/LMS1xx_rtabmap.launch" />
+    
+    <!-- lidar LDMRS -->
+    <include file="$(find sick_ldmrs_tools)/launch/sick_ldmrs_rtabmap.launch" />
+    
+    <!-- STM Nucleo IMU (IKS01A1) -->
+    <include file="$(find nucleof746zg_IMU_driver)/launch/driver_imu_rtabmap.launch" />
+    
+    <!-- rostopic hz to verify all sensros are publishing messages-->
+    <node pkg="rostopic" type="rostopic" name="rostopic" args="hz /camera/aligned_depth_to_color/image_raw /fix /scan /cloud /f746zg_imu/data_raw" output="screen"/>
+
+</launch>

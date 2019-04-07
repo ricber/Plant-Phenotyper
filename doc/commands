@@ -1,0 +1,22 @@
+rosrun tf static_transform_publisher 0.155 0 0.17 0 0 0 base_link base_laser_link 25
+
+rosrun tf static_transform_publisher 0.008 -0.253 0.065 -1.5708 0 -1.5708 base_link camera_link 33
+
+rosrun tf static_transform_publisher -0.005 0.18 0.02 3.1416 0 0 base_link imu_link 100
+
+<node pkg="tf" type="static_transform_publisher" name="base_laser_link_broadcaster" args="0.188 0.175 0.015 0 0 0 base_link base_laser_link 12.5" />
+
+xrandr --fb 1920x1080
+
+screen /dev/ttyACM0 115200 
+
+rosbag record -b 0 --lz4 /camera/color/image_raw /camera/color/camera_info /camera/aligned_depth_to_color/image_raw /camera/imu /tf_static /tf /scan /cloud /fix /f746zg_imu/data_raw /f746zg_imu/mag
+
+CHANGE CAMERA RESOLUTION
+
+rostopic hz /camera/aligned_depth_to_color/image_raw /fix /scan /cloud /f746zg_imu/data_raw
+
+rosrun tf static_transform_publisher 0.0 -0.14 0.30 0 0 0 base_link gps 50
+
+rostopic echo /camera/color/image_raw | grep height
+

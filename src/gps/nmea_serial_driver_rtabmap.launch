@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="port" default="/dev/trimble" />
+  <arg name="baud" default="38400" /> 
+  <arg name="frame_id" default="gps" />
+  <arg name="time_ref_source" default="gps" />
+  <arg name="useRMC" default="false" />
+
+  <node name="trimble" pkg="nmea_navsat_driver" type="nmea_serial_driver" output="screen">
+    <param name="port" value="$(arg port)"/>
+    <param name="baud" value="$(arg baud)" />
+    <param name="frame_id" value="$(arg frame_id)" />
+    <param name="time_ref_source" value="$(arg time_ref_source)" />
+    <param name="useRMC" value="$(arg useRMC)" />
+  </node>
+  
+   <!--     TF    -->
+  <node pkg="tf" type="static_transform_publisher" name="gps_link_broadcaster" args="0.0 -0.14 0.30 0 0 0 base_link gps 50" />
+
+</launch>

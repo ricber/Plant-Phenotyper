@@ -1,0 +1,57 @@
+# Magnetometer calibration params
+# Calibration of magnetometer described at https://github.com/kriswiner/MPU6050/wiki/Simple-and-Effective-Magnetometer-Calibration
+
+    # the center of the measurement for each axis. The driver will subract these values in order to center the measurements in 0 
+    /nucleof746zg_driver/mag_x_center: 0.148
+    /nucleof746zg_driver/mag_y_center: -0.584
+    /nucleof746zg_driver/mag_z_center: 0.861
+
+    # correction for the width of the measurements. The driver will multiply the (centered) measurements for this factor
+    /nucleof746zg_driver/mag_x_width_correction: 0.977
+    /nucleof746zg_driver/mag_y_width_correction: 1.005
+    /nucleof746zg_driver/mag_z_width_correction: 1.019
+
+########################################################################
+
+# Gyro calibration params
+
+    # the center of the measurement for each axis. The driver will subract these values in order to center the measurements in 0 
+    /nucleof746zg_driver/gyro_x_center: 0.04786
+    /nucleof746zg_driver/gyro_y_center: -0.09032
+    /nucleof746zg_driver/gyro_z_center: 0.03371
+
+########################################################################
+
+# Accelerometer calibration params
+
+    # the center of the measurement for each axis. The driver will subract these values in order to center the measurements in 0 
+    /nucleof746zg_driver/acc_x_center: -0.24
+    /nucleof746zg_driver/acc_y_center: -0.056
+    /nucleof746zg_driver/acc_z_center: -0.215
+
+    # correction for the width of the measurements. The driver will multiply the (centered) measurements for this factor
+    /nucleof746zg_driver/acc_x_width_correction: 1.006
+    /nucleof746zg_driver/acc_y_width_correction: 1.002
+    /nucleof746zg_driver/acc_z_width_correction: 0.997
+
+########################################################################
+
+# Covariance matrices
+
+    # gyroscope covariance matrix
+    /nucleof746zg_driver/angular_velocity_covariance: [ 0.1,    0,      0,
+                                                        0,      0.1,    0,  
+                                                        0,      0,      0.1]
+    
+    # accelerometer covariance matrix
+    /nucleof746zg_driver/linear_acceleration_covariance: [  0.1,    0,      0,  
+                                                            0,      0.1,    0,  
+                                                            0,      0,      0.1]
+
+
+
+
+
+
+
+
