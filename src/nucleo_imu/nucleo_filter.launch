@@ -1,12 +1,15 @@
 <?xml version="1.0"?>
 <launch>
+        <arg name="imu_data_topic"                      default="f746zg_imu/data_raw" />
+        <arg name="imu_mag_topic"                       default="f746zg_imu/mag" />
+        
 	<node name="imu_filter_complementary" pkg="imu_complementary_filter" type="complementary_filter_node" required="true">	
 		<!-- <param name="frame_id" value="imu_link" /> --> <!-- frame_id must be changed in the config yaml file -->
 		
-		<remap from="/imu/data_raw" to="f746zg_imu/data_raw" />
-		<remap from="/imu/mag" to="f746zg_imu/mag" />
-		<param name="use_mag" value="true" />
-		<param name="gain_mag" value="0.0005" />
-		<param name="gain_acc" value="0.02" />
+		<remap from="/imu/data_raw"     to="$(arg imu_data_topic)" />
+		<remap from="/imu/mag"          to="$(arg imu_mag_topic)" />
+		<param name="use_mag"           value="true" />
+		<param name="gain_mag"          value="0.0005" />
+		<param name="gain_acc"          value="0.02" />
 	</node>
 </launch>

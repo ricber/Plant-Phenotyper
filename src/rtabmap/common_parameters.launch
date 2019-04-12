@@ -17,18 +17,18 @@
 	
  <!-- Various parameters -->
 	<arg name="frame_id"                        default="base_link"/>           <!-- Fixed frame id, you may set "base_link" or "base_footprint" if they are published -->     
-	<arg name="odom_frame_id"                   default="odom"/>                <!-- If set, TF is used to get odometry instead of the topic. -->
+	<arg name="odom_frame_id"                   default=""/>                    <!-- If set, TF is used to get odometry instead of the topic. -->
 	<arg name="map_frame_id"                    default="map"/>
 	<arg name="ground_truth_frame_id"           default=""/>                    <!-- e.g., "world" -->
 	<arg name="ground_truth_base_frame_id"      default=""/>                    <!-- e.g., "tracker", a fake frame matching the frame "frame_id" (but on different TF tree) -->
 	<arg name="namespace"                       default="rtabmap"/>
 	<arg name="database_path"                   default="~/.ros/rtabmap.db"/>
 	<arg name="queue_size"                      default="10"/>
-	<arg name="wait_for_transform_duration"     default="3"/>
-	<arg name="args"                            default="-d"/>                  <!-- delete_db_on_start, udebug -->
+	<arg name="wait_for_transform_duration"     default="0.2"/>
+	<arg name="args"                            default="-d --udebug"/>                  <!-- delete_db_on_start, udebug -->
 	<arg name="launch_prefix"                   default=""/>                    <!-- for debugging purpose, it fills launch-prefix tag of the nodes -->
 	<arg name="output"                          default="screen"/>              <!-- Control node output (screen or log) -->
-	<arg name="publish_tf"				        default="false" /> 			    <!-- publish TF from /map to /odom -->
+	<arg name="publish_tf"				        default="true" /> 			    <!-- publish TF from /map to /odom -->
 
  <!-- if timestamps of the input topics are synchronized using approximate or exact time policy -->
 	<arg name="approx_sync"                     default="true"/>                <!-- This is the synchronization of the camera, laser and odometry topics -->
@@ -50,7 +50,7 @@
 	<arg name="rgb_image_transport"             default="compressed"/>          <!-- Common types: compressed, theora (see "rosrun image_transport list_transports") -->
 	<arg name="depth_image_transport"           default="compressedDepth"/>     <!-- Depth compatible types: compressedDepth (see "rosrun image_transport list_transports") -->
 	
-	<arg name="subscribe_scan"                  default="true"/>
+	<arg name="subscribe_scan"                  default="false"/>
 	<arg name="scan_topic"                      default="/scan"/>
 	<arg name="subscribe_scan_cloud"            default="false"/>
 	<arg name="scan_cloud_topic"                default="/scan_cloud"/>
@@ -58,11 +58,11 @@
     <arg name="scan_normal_radius"              default="0.0"/>
  
  <!-- Odometry parameters -->
-	<arg name="visual_odometry"         	    default="false"/>               <!-- Launch rtabmap visual odometry node -->
-	<arg name="icp_odometry"             	    default="true"/>                <!-- Launch rtabmap icp odometry node -->
-	<arg name="odom_topic_pub"                  default="odom_icp"/>            <!-- Odometry topic name published by the odometry node (icp or visual) -->
-	<arg name="odom_topic_sub"                  default="/odometry/filtered"/>  <!-- Odometry topic name subscribed by rtabmap and rtabmapviz -->
-	<arg name="icp_odom_publish_tf"             default="false"/>
+	<arg name="visual_odometry"         	    default="true"/>                <!-- Launch rtabmap visual odometry node -->
+	<arg name="icp_odometry"             	    default="false"/>               <!-- Launch rtabmap icp odometry node -->
+	<arg name="odom_topic_pub"                  default="odom"/>                <!-- Odometry topic name published by the odometry node (icp or visual) -->
+	<arg name="odom_topic_sub"                  default="odom"/>                <!-- Odometry topic name subscribed by rtabmap and rtabmapviz -->
+	<arg name="odom_publish_tf"                 default="true"/>
 	<arg name="vo_frame_id"              	    default="odom"/> 		        <!-- Visual/Icp odometry frame ID for TF to get and publish the data -->
 	<arg name="odom_tf_angular_variance" 	    default="1"/>                   <!-- If TF is used to get odometry, this is the default angular variance -->
 	<arg name="odom_tf_linear_variance"  	    default="1"/>                   <!-- If TF is used to get odometry, this is the default linear variance -->
@@ -73,12 +73,13 @@
 	<arg name="odom_guess_min_rotation"    	    default="0"/> 
 	
  <!-- RTAB-MAP's parameters -->
-	<arg name="Reg/Strategy"             		default="2"/>   		<!--  0=Vis, 1=Icp, 2=VisIcp -->
-	<arg name="Odom/Strategy"            		default="1"/>			<!--  0=Frame-to-Map (F2M) 1=Frame-to-Frame (F2F) 2=Fovis 3=viso2 4=DVO-SLAM 5=ORB_SLAM2 6=OKVIS 7=LOAM 8=MSCKF_VIO ; IF "Reg/Strategy"=1, then 0=S2M and 1=S2S) -->
+	<arg name="Reg/Strategy"             		default="0"/>   		<!--  0=Vis, 1=Icp, 2=VisIcp -->
+	<arg name="Odom/Strategy"            		default="0"/>			<!--  0=Frame-to-Map (F2M) 1=Frame-to-Frame (F2F) 2=Fovis 3=viso2 4=DVO-SLAM 5=ORB_SLAM2 6=OKVIS 7=LOAM 8=MSCKF_VIO ; IF "Reg/Strategy"=1, then 0=S2M and 1=S2S) -->
 	<arg name="Icp/PointToPlane"         		default="false"/>    	<!--  Use point to plane ICP -->
     <arg name="Icp/MaxTranslation"		 	    default="2" />    		<!--  Maximum ICP translation correction accepted (m) -->
 	<arg name="Icp/MaxRotation"		     	    default="2" />			<!--  Maximum ICP rotation correction accepted (rad) -->
-	<arg name="Grid/FromDepth"		     	    default="true" />		<!--  Create occupancy grid from depth image(s), otherwise it is created from laser scan -->
+	<arg name="Icp/CorrespondenceRatio"         default="0.05" />       <!--  Ratio of matching correspondences to accept the transform -->
+    <arg name="Grid/FromDepth"		     	    default="true" />		<!--  Create occupancy grid from depth image(s), otherwise it is created from laser scan -->
 	<arg name="Icp/PM"                          default="false"/>       <!--  Use libpointmatcher for ICP registration instead of PCL's implementation -->
     <arg name="Grid/3D"		     		        default="true" />		<!--  A 3D occupancy grid is required if you want an OctoMap (3D ray tracing). Set to false if you want only a 2D map, the cloud will be projected on xy plane. A 2D map can be still generated if checked, but it requires more memory and time to generate it. Ignored if laser scan is 2D and "Grid/FromDepth" is false. -->
 	<arg name="Grid/RayTracing"		     	    default="false" />		<!--  Ray tracing is done for each occupied cell, filling unknown space between the sensor and occupied cells. If "Grid/3D"=true, RTAB-Map should be built with OctoMap support, otherwise 3D ray tracing is ignored. -->
@@ -87,18 +88,19 @@
 	<arg name="RGBD/AngularUpdate"        		default="0.01" />
 	<arg name="RGBD/LinearUpdate"         		default="0.01" />
 	<arg name="RGBD/OptimizeFromGraphEnd" 		default="false" />
-	<arg name="RGBD/OptimizeMaxError" 	  	    default="100" />
+	<arg name="RGBD/OptimizeMaxError" 	  	    default="1" />
 	<arg name="RGBD/ProximityPathMaxNeighbors" 	default="10"/>			<!-- Maximum neighbor nodes compared on each path. Set to 0 to disable merging the laser scans -->
 	<arg name="Reg/Force3DoF"             		default="false" />
-	<arg name="Vis/MinInliers"            		default="20" />
-	<arg name="Rtabmap/TimeThr"            		default="100" />		<!-- Maximum time allowed for map update (ms) (0 means infinity). When map update time exceeds this fixed time threshold, some nodes in Working Memory (WM) are transferred to Long-Term Memory to limit the size of the WM and decrease the update time. -->
-	<arg name="Rtabmap/MemoryThr"            	default="150" />		<!-- Maximum nodes in the Working Memory (0 means infinity). Similar to "Rtabmap/TimeThr ", when the number of nodes in Working Memory (WM) exceeds this treshold, some nodes are transferred to Long-Term Memory to keep WM size fixed. -->
-	<arg name="Rtabmap/DetectionRate"       	default="1" />  		<!-- Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate. IF YOU CHANGE THIS PARAMETR CHANGE ALSO "Mem/STMSize" ACCORDINGLY, BECAUSE A HIGHER DETECTION RATE NEEDS A BIGGER STM BUFFER. e.g. 1Hz/15nodes 2Hz/30nodes -->
-	<arg name="Mem/STMSize"       			    default="10" />  		<!-- Short-term memory size. PAY ATTENTION: nodes in STM are not used for loop closure. So, this threshold should be increased only if the robot is moving fast -->
+    <arg name="Vis/MaxFeatures"                 default="1500" />
+	<arg name="Vis/MinInliers"            		default="20" />         <!-- Minimum feature correspondences to compute/accept the transformation -->
+    <arg name="Vis/EstimationType"       	    default="1" />          <!-- Motion estimation approach: 0:3D->3D, 1:3D->2D (PnP), 2:2D->2D (Epipolar Geometry) -->
+    <arg name="Vis/PnPReprojError"              default="4" />           <!-- PnP reprojection error -->
+    <arg name="Kp/MaxFeatures"                  default="750" />        <!-- keypoint memory for loop closure. Maximum features extracted from the images (0 means not bounded, <0 means no extraction). Adjust in relation to Vis/MaxFeatures (should be half of it approximately) -->
+	<arg name="Rtabmap/TimeThr"            		default="200" />		<!-- Maximum time allowed for map update (ms) (0 means infinity). When map update time exceeds this fixed time threshold, some nodes in Working Memory (WM) are transferred to Long-Term Memory to limit the size of the WM and decrease the update time -->
+	<arg name="Rtabmap/MemoryThr"            	default="300" />		<!-- Maximum nodes in the Working Memory (0 means infinity). Similar to "Rtabmap/TimeThr ", when the number of nodes in Working Memory (WM) exceeds this treshold, some nodes are transferred to Long-Term Memory to keep WM size fixed -->
+	<arg name="Rtabmap/DetectionRate"       	default="2" />  		<!-- Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate. IF YOU CHANGE THIS PARAMETR CHANGE ALSO "Mem/STMSize" ACCORDINGLY, BECAUSE A HIGHER DETECTION RATE NEEDS A BIGGER STM BUFFER. e.g. 1Hz/15nodes 2Hz/30nodes -->
+	<arg name="Mem/STMSize"       			    default="30" />  		<!-- Short-term memory size. PAY ATTENTION: nodes in STM are not used for loop closure. So, this threshold should be increased only if the robot is moving fast -->
 	<arg name="Mem/RehearsalSimilarity"       	default="0.2" />  		<!-- Rehearsal similarity. -->
-	
-    
-    
     
     
     
@@ -149,16 +151,19 @@
             <remap unless="$(arg rgbd_sync)"            from="rgbd_image" to="$(arg rgbd_topic)_relay"/>
             <remap from="odom"                          to="$(arg odom_topic_pub)"/>
           
-            <param name="frame_id"                      type="string" value="$(arg icp_frame_id)"/>
-            <param name="odom_frame_id"                 type="string" value="$(arg vo_frame_id)"/>
-            <param name="ground_truth_frame_id"         type="string" value="$(arg ground_truth_frame_id)"/>
-            <param name="ground_truth_base_frame_id"    type="string" value="$(arg ground_truth_base_frame_id)"/>
-            <param name="config_path"                   type="string" value="$(arg cfg)"/>
-            <param name="queue_size"                    type="int"    value="$(arg queue_size)"/>
-            <param name="subscribe_rgbd"                type="bool"   value="$(arg subscribe_rgbd)"/>
-            <param name="guess_frame_id"                type="string" value="$(arg odom_guess_frame_id)"/>
-            <param name="guess_min_translation"         type="double" value="$(arg odom_guess_min_translation)"/>
-            <param name="guess_min_rotation"            type="double" value="$(arg odom_guess_min_rotation)"/>
+            <param name="frame_id"                      type="string"   value="$(arg frame_id)"/>
+            <param name="odom_frame_id"                 type="string"   value="$(arg vo_frame_id)"/>
+            <param name="publish_tf"               	    type="bool"     value="$(arg odom_publish_tf)"/>
+            <param name="ground_truth_frame_id"         type="string"   value="$(arg ground_truth_frame_id)"/>
+            <param name="ground_truth_base_frame_id"    type="string"   value="$(arg ground_truth_base_frame_id)"/>
+            <param name="config_path"                   type="string"   value="$(arg cfg)"/>
+            <param name="queue_size"                    type="int"      value="$(arg queue_size)"/>
+            <param name="subscribe_rgbd"                type="bool"     value="$(arg subscribe_rgbd)"/>
+            <param name="guess_frame_id"                type="string"   value="$(arg odom_guess_frame_id)"/>
+            <param name="guess_min_translation"         type="double"   value="$(arg odom_guess_min_translation)"/>
+            <param name="guess_min_rotation"            type="double"   value="$(arg odom_guess_min_rotation)"/>
+            
+            <param name="Vis/PnPReprojError"            type="double"   value="$(arg Vis/PnPReprojError)" />
         </node>
         
         
@@ -172,7 +177,7 @@
             <param name="Reg/Strategy"                  type="string" value="1"/> <!-- 1=ICP -->
             <param name="frame_id"                      type="string" value="$(arg frame_id)"/>
             <param name="odom_frame_id"                 type="string" value="$(arg vo_frame_id)"/>
-            <param name="publish_tf"               	    type="bool"   value="$(arg icp_odom_publish_tf)"/>
+            <param name="publish_tf"               	    type="bool"   value="$(arg odom_publish_tf)"/>
             <param name="ground_truth_frame_id"         type="string" value="$(arg ground_truth_frame_id)"/>
             <param name="ground_truth_base_frame_id"    type="string" value="$(arg ground_truth_base_frame_id)"/>
             <param name="config_path"                   type="string" value="$(arg cfg)"/>
@@ -182,6 +187,14 @@
             <param name="guess_min_rotation"            type="double" value="$(arg odom_guess_min_rotation)"/>
             <param name="scan_normal_k"                 type="int" value="$(arg scan_normal_k)"/>
             <param name="scan_normal_radius"            type="double" value="$(arg scan_normal_radius)"/>
+            
+            <param name="Icp/PointToPlane"		  		    type="bool"     value="$(arg Icp/PointToPlane)" /> 
+            <param name="Icp/PM" 	                        type="bool"     value="$(arg Icp/PM)"/>         <!-- Use libpointmatcher for ICP registration instead of PCL's implementation. -->
+            <param name="Icp/MaxTranslation"		  		type="double"   value="$(arg Icp/MaxTranslation)" />
+            <param name="Icp/MaxRotation"		      		type="double"   value="$(arg Icp/MaxRotation)" />
+            <param name="Icp/CorrespondenceRatio"           type="double"   value="$(arg Icp/CorrespondenceRatio)" />  
+            <param name="Odom/Strategy"             		type="int"      value="$(arg Odom/Strategy)"/> 
+
         </node>
     
     
@@ -222,20 +235,23 @@
             <param name="Reg/Strategy"              		type="int"      value="$(arg Reg/Strategy)"/> 
             <param name="Odom/Strategy"             		type="int"      value="$(arg Odom/Strategy)"/> 
             <param name="Reg/Force3DoF"             		type="string"   value="$(arg Reg/Force3DoF)"/>
+            <param name="Vis/MaxFeatures"                   type="int"      value="$(arg Vis/MaxFeatures)" />
             <param name="Vis/MinInliers"            		type="string"   value="$(arg Vis/MinInliers)"/>
+            <param name="Vis/EstimationType"       	        type="int"      value="$(arg Vis/EstimationType)" /> 
+            <param name="Kp/MaxFeatures"                    type="int"      value="$(arg Kp/MaxFeatures)" />
             <param name="Grid/FromDepth" 			  		type="bool"     value="$(arg Grid/FromDepth)"/>
             <param name="Grid/3D" 			      		    type="bool"     value="$(arg Grid/3D)"/>
-            <param name="Icp/PointToPlane"		  		    type="bool"     value="$(arg Icp/PointToPlane)" /> 
-            <param name="Icp/PM" 	                        type="bool"     value="$(arg Icp/PM)"/>         <!-- Use libpointmatcher for ICP registration instead of PCL's implementation. -->
-            <param name="Icp/MaxTranslation"		  		type="double"   value="$(arg Icp/MaxTranslation)" />
-            <param name="Icp/MaxRotation"		      		type="double"   value="$(arg Icp/MaxRotation)" />
             <param name="Rtabmap/TimeThr"            		type="double"	value="$(arg Rtabmap/TimeThr)" />			
             <param name="Rtabmap/MemoryThr"        		    type="int"		value="$(arg Rtabmap/MemoryThr)" />
             <param name="Rtabmap/DetectionRate"       	    type="double"	value="$(arg Rtabmap/DetectionRate)" />  
             <param name="Mem/RehearsalSimilarity"     	    type="double"  	value="$(arg Mem/RehearsalSimilarity)" /> 
             <param name="Mem/STMSize"       				type="int"		value="$(arg Mem/STMSize)" /> 	
             <param name="RGBD/ProximityPathMaxNeighbors" 	type="string" 	value="$(arg RGBD/ProximityPathMaxNeighbors)"/>	
-
+            <param name="Icp/PointToPlane"		  		    type="bool"     value="$(arg Icp/PointToPlane)" /> 
+            <param name="Icp/PM" 	                        type="bool"     value="$(arg Icp/PM)"/>         
+            <param name="Icp/MaxTranslation"		  		type="double"   value="$(arg Icp/MaxTranslation)" />
+            <param name="Icp/MaxRotation"		      		type="double"   value="$(arg Icp/MaxRotation)" />
+            <param name="Icp/CorrespondenceRatio"           type="double"   value="$(arg Icp/CorrespondenceRatio)" />  
         
         <!-- SUBSCRIBED TOPICS -->  
             <remap from="rgb/image"               to="$(arg rgb_topic_relay)"/>

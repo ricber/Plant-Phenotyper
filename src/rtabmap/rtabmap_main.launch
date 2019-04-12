@@ -1,40 +1,147 @@
 <?xml version="1.0"?>
 <launch>	
     
-    <arg name="d435" default="false" /> 
-    <arg name="d435_imu" default="false"/> 
-    <arg name="d435_gps_imu" default="false"/> 
-    <arg name="d435_imu_lms100" default="false"/>
-    <arg name="d435_gps_imu_ldmrs" default="false"/> 
-    <arg name="d435_gps_imu_lms100" default="false"/> 
+    <arg name="d435"                    default="false" /> 
+    <arg name="d435_imu"                default="false" /> 
+    <arg name="d435_gps"                default="false" />
+    <arg name="d435_lms100"             default="false" /> 
+    <arg name="d435_gps_imu"            default="false" /> 
+    <arg name="d435_imu_lms100"         default="false" />
+    <arg name="d435_gps_lms100"         default="false" />
+    <arg name="d435_gps_imu_ldmrs"      default="false" /> 
+    <arg name="d435_gps_imu_lms100"     default="false" /> 
     
+    
+    <group if="$(arg d435)">
+        
+        <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
+            <arg name="wait_for_transform_duration"             value="0.3"/>
+        </include>    
+        <!-- PARAMETERS OVERRIDE -->    
+        <param name="/rtabmap/rtabmap/Rtabmap/DetectionRate"       	        type="double"       value="1" />  		<!-- Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate. IF YOU CHANGE THIS PARAMETR CHANGE ALSO "Mem/STMSize" ACCORDINGLY, BECAUSE A HIGHER DETECTION RATE NEEDS A BIGGER STM BUFFER. e.g. 1Hz/15nodes 2Hz/30nodes -->
+        <param name="/rtabmap/rtabmap/Mem/STMSize"       			        type="int"          value="15" />
+        <param name="/rtabmap/rtabmap/Vis/CorNNDR"                          type="double"       value="0.6" />
+        <param name="/rtabmap/rtabmap/Vis/MaxFeatures"                      type="int"          value="1500" />
+        
+        <!-- These two parameters are to reset odometry when lost -->
+        <param name="/rtabmap/rtabmap/Rtabmap/StartNewMapOnLoopClosure"     type="bool"         value="true" />
+        <param name="/rtabmap/rgbd_odometry/Odom/ResetCountdown"            type="int"          value="1" />
+        <!-- <param name="/rtabmap/rtabmap/Vis/MaxDepth"                 type="double"       value="3.0" /> -->
+    </group>
+    
+    
+    <group if="$(arg d435_gps)">
+        
+         <!-- nucleo imu -->
+        <include file="$(find plant-phenotyper)/src/nucleo_imu/nucleo_filter.launch" />
+        
+        <include file="$(find plant-phenotyper)/src/robot_localization/gps_robot_localization.launch">
+                <arg name="two_d_mode"                          value="true" />
+        </include>
+        
+        
+        <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
+            <arg name="wait_for_transform_duration"             value="0.3"/>
+            <arg name="odom_topic_pub"                          value="odom_vis"/>                      <!-- Odometry topic name published by the odometry node (icp or visual) -->
+            <arg name="odom_topic_sub"                          value="odom_vis_gps"/>                  <!-- Odometry topic name subscribed by rtabmap and rtabmapviz -->
+        </include>    
+        <!-- PARAMETERS OVERRIDE -->    
+        <param name="/rtabmap/rtabmap/Rtabmap/DetectionRate"       	        type="double"       value="1" />  		<!-- Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate. IF YOU CHANGE THIS PARAMETR CHANGE ALSO "Mem/STMSize" ACCORDINGLY, BECAUSE A HIGHER DETECTION RATE NEEDS A BIGGER STM BUFFER. e.g. 1Hz/15nodes 2Hz/30nodes -->
+        <param name="/rtabmap/rtabmap/Mem/STMSize"       			        type="int"          value="15" />
+        <param name="/rtabmap/rtabmap/Vis/CorNNDR"                          type="double"       value="0.6" />
+        <param name="/rtabmap/rtabmap/Vis/MaxFeatures"                      type="int"          value="1500" />
+        <param name="rtabmap/rtabmap/Reg/Force3DoF"             	        type="bool"         value="true" />
+
+        
+        <param name="/rtabmap/rtabmap/Rtabmap/StartNewMapOnLoopClosure"     type="bool"         value="true" />
+        <param name="/rtabmap/rgbd_odometry/Odom/ResetCountdown"            type="int"          value="1" />
+        <!-- <param name="/rtabmap/rtabmap/Vis/MaxDepth"                 type="double"       value="3.0" /> -->
+    </group>
+    
+    
+    <group if="$(arg d435_lms100)">
+        
+        <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
+            <arg name="visual_odometry"         	            value="false"/>              
+            <arg name="icp_odometry"             	            value="true"/>              
+        </include>
+        <!-- PARAMETERS OVERRIDE -->
+        <param name="/rtabmap/rtabmap/Vis/MinInliers"           type="int"          value="20"/>
+        <param name="/rtabmap/rtabmap/subscribe_scan"           type="bool"         value="true" />
+    
+    </group>
     
     
     <group if="$(arg d435_imu_lms100)">
         
         <!-- nucleo imu -->
-        <!-- <include file="$(find nucleof746zg_IMU_driver)/launch/nucleo_filter.launch" />	-->
         <include file="$(find plant-phenotyper)/src/nucleo_imu/nucleo_filter.launch" />
         
         <include file="$(find plant-phenotyper)/src/robot_localization/imu_robot_localization.launch" />
         
-        <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch" />
+        <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
+            <arg name="visual_odometry"         	            value="false"/>              
+            <arg name="icp_odometry"             	            value="true"/>              
+        </include>
         
         <!-- PARAMETERS OVERRIDE -->
-        <!-- <param name="/rtabmap/rtabmap/Reg/Force3DoF"       type="string"   value="false"/> -->
+        <param name="/rtabmap/rtabmap/subscribe_scan"           type="bool"     value="true" />
     
     </group>
     
+    
+    <group if="$(arg d435_gps_lms100)">
+        <node pkg="imu_repub" type="imu_repub_node" name="imu_repub_node" required="true" />
+        
+        <!-- nucleo imu -->
+        <include file="$(find plant-phenotyper)/src/nucleo_imu/nucleo_filter.launch">
+             <arg name="imu_data_topic"                         value="f746zg_imu/data_cov" />
+        </include>
+        
+        <include file="$(find plant-phenotyper)/src/robot_localization/gps_robot_localization.launch">
+            <arg name="navsat_odom_topic"                       value="/rtabmap/odom_icp" />
+            <arg name="gps_odom_topic"                          value="/odom_icp_gps" />
+            <arg name="gps_accel_topic"                         value="/accel_icp_gps" />
+        </include>
+        
+        <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
+            <arg name="visual_odometry"         	            value="false"/>              
+            <arg name="icp_odometry"             	            value="true"/> 
+            <arg name="odom_publish_tf"                         value="true"/>
+            <arg name="publish_tf"                              value="false" />
+            
+            <arg name="odom_topic_pub"                          value="odom_icp"/>                   <!-- Odometry topic name published by the odometry node (icp or visual) -->
+            <arg name="odom_topic_sub"                          value="/odom_icp_gps"/>              <!-- Odometry topic name subscribed by rtabmap and rtabmapviz -->             
+        </include>
+        
+        <!-- PARAMETERS OVERRIDE -->
+        <param name="/rtabmap/rtabmap/subscribe_scan"           type="bool"     value="true" />
+    </group>
+    
+    
     <group if="$(arg d435_gps_imu_lms100)">
+        
+        <node pkg="imu_repub" type="imu_repub_node" name="imu_repub_node" required="true" />
 		
         <!-- nucleo imu -->
-        <include file="$(find plant-phenotyper)/src/nucleo_imu/nucleo_filter.launch" />	
+        <include file="$(find plant-phenotyper)/src/nucleo_imu/nucleo_filter.launch">
+             <arg name="imu_data_topic"                         value="f746zg_imu/data_cov" />
+        </include>
             
-        <include file="$(find plant-phenotyper)/src/robot_localization/gps_robot_localization.launch" />
+        <include file="$(find plant-phenotyper)/src/robot_localization/imu_gps_robot_localization.launch" />
         
-        <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch" />
+        <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch" >
+            <!-- ARGUMENTS OVERRIDE -->
+            <arg name="visual_odometry"         	            value="false"/>              
+            <arg name="icp_odometry"             	            value="true"/>              
+            <arg name="odom_publish_tf"                         value="false"/>
+            <arg name="odom_topic_pub"                          value="odom_icp"/>                      <!-- Odometry topic name published by the odometry node (icp or visual) -->
+            <arg name="odom_topic_sub"                          value="/odom_icp_imu_gps"/>              <!-- Odometry topic name subscribed by rtabmap and rtabmapviz -->
+            <arg name="publish_tf"                              value="false" />
+        </include>
         <!-- PARAMETERS OVERRIDE -->
-        <!-- <param name="/rtabmap/rtabmap/Reg/Force3DoF"       type="string"   value="false"/> -->
+        <param name="/rtabmap/rtabmap/subscribe_scan"           type="bool"         value="true" />
+        <param name="/rtabmap/rtabmap/Odom/Strategy"            type="int"          value="0"/>
     
     </group>
     

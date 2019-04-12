@@ -1,0 +1,99 @@
+<?xml version="1.0"?>
+<!-- robot_localization -->	
+<launch>     
+        
+    <node pkg="robot_localization" type="ekf_localization_node" name="ekf_se_icp_imu" clear_params="true" required="true">
+        <rosparam command="load" file="$(find plant-phenotyper)/src/robot_localization/ekf_template_rtabmap.yaml" />
+    
+        <remap from="odometry/filtered" to="/odom_icp_imu"/>
+        <remap from="accel/filtered" to="/accel_icp_imu"/>
+        
+        
+        <param name="frequency"                                                 value="30"/>
+        <param name="odom_frame"                                                value="odom"/>
+        <param name="base_link_frame"                                           value="base_link"/>
+        <param name="world_frame"               type="string"                   value="odom" />
+        <param name="two_d_mode"                type="bool"                     value="false" />  
+        <param name="debug"                     type="bool"                     value="false" />
+        
+        
+        <param name="odom0" value="/rtabmap/odom_icp"/>
+        <rosparam param="odom0_config">[true,true,true,
+                                        true,true,true,
+                                        true,true,true,
+                                        false,false,false,
+                                        true,true,true]</rosparam>
+        <param name="odom0_differential" value="false"/>
+        <param name="odom0_relative" value="false"/>
+    
+    
+        <param name="imu0" value="/imu/data"/>
+        <rosparam param="imu0_config">[false,false,false,
+                                        false,false,false,
+                                        false,false,false,
+                                        true,true,true,
+                                        false,false,false]</rosparam>
+        <param name="imu0_differential" value="false"/>
+        <param name="imu0_relative" value="false"/>
+        
+        <param name="use_control" value="false"/>
+    </node>	
+      
+        <!-- GPS integration with navsat transform node -->
+    <node pkg="robot_localization" type="navsat_transform_node" name="navsat_transform_node" required="true">
+                    
+        <param name="magnetic_declination_radians" value="0.04828744"/> <!-- magnetic declination at Airlab, Via Ponzio, Milan. 45°28'42" N 9°13'48" E -->
+        
+        <param name="yaw_offset" value="0"/> <!-- the nucleo IMU is correctly using the ENU coordinate frame, so giving a yaw=0 when facing east (X facing east) --> 
+        
+        <!-- <remap from="/imu/data" to="/your/imu/topic" /> -->
+        <remap from="/gps/fix"                          to="/fix" /> 
+        <remap from="/odometry/filtered"                to="/odom_icp_imu_gps" /> 
+    </node>
+      
+      
+    <node pkg="robot_localization" type="ekf_localization_node" name="ekf_se_icp_imu_gps" clear_params="true" required="true">
+        <rosparam command="load" file="$(find plant-phenotyper)/src/robot_localization/ekf_template_rtabmap.yaml" />
+    
+        
+        <remap from="odometry/filtered" to="/odom_icp_imu_gps"/>
+        <remap from="accel/filtered" to="/accel_icp_imu_gps"/>
+        
+        
+        <param name="frequency"                 type="double"                   value="30"/>
+        <param name="map_frame"                 type="string"                   value="map" />
+        <param name="world_frame"               type="string"                   value="map" />
+        <param name="two_d_mode"                type="bool"                     value="false" />  
+        <param name="debug"                     type="bool"                     value="false" />
+        
+        
+        <param name="odom0" value="/odometry/gps"/>
+        <rosparam param="odom0_config">[true,true,false,
+                                        false,false,false,
+                                        false,false,false,
+                                        false,false,false,
+                                        false,false,false]</rosparam>
+        <param name="odom0_differential" value="false"/>
+        <param name="odom0_relative" value="false"/>
+        
+        
+        <param name="odom1" value="/rtabmap/odom_icp"/>
+        <rosparam param="odom1_config">[true,true,true,
+                                        true,true,true,
+                                        true,true,true,
+                                        false,false,false,
+                                        true,true,true]</rosparam>
+        <param name="odom1_differential" value="true"/>
+        <param name="odom1_relative" value="false"/>
+    
+        
+        <param name="imu0" value="/imu/data"/>
+        <rosparam param="imu0_config">[false,false,false,
+                                        false,false,false,
+                                        false,false,false,
+                                        true,true,true,   
+                                        false,false,false]</rosparam>
+        <param name="imu0_differential" value="false"/>
+        <param name="imu0_relative" value="false"/>
+    </node>	
+</launch>
