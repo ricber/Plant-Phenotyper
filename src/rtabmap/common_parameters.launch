@@ -51,9 +51,9 @@
 	<arg name="depth_image_transport"           default="compressedDepth"/>     <!-- Depth compatible types: compressedDepth (see "rosrun image_transport list_transports") -->
 	
 	<arg name="subscribe_scan"                  default="false"/>
-	<arg name="scan_topic"                      default="/scan"/>
+	<arg name="scan_topic"                      default="/scan"/>               <!-- Do not provide /scan and /cloud topics at the same time! -->
 	<arg name="subscribe_scan_cloud"            default="false"/>
-	<arg name="scan_cloud_topic"                default="/scan_cloud"/>
+	<arg name="scan_cloud_topic"                default="/cloud"/>
 	<arg name="scan_normal_k"                   default="0"/>
     <arg name="scan_normal_radius"              default="0.0"/>
  
@@ -78,7 +78,7 @@
 	<arg name="Icp/PointToPlane"         		default="false"/>    	<!--  Use point to plane ICP -->
     <arg name="Icp/MaxTranslation"		 	    default="2" />    		<!--  Maximum ICP translation correction accepted (m) -->
 	<arg name="Icp/MaxRotation"		     	    default="2" />			<!--  Maximum ICP rotation correction accepted (rad) -->
-	<arg name="Icp/CorrespondenceRatio"         default="0.05" />       <!--  Ratio of matching correspondences to accept the transform -->
+	<arg name="Icp/CorrespondenceRatio"         default="0.1" />        <!--  Ratio of matching correspondences to accept the transform -->
     <arg name="Grid/FromDepth"		     	    default="true" />		<!--  Create occupancy grid from depth image(s), otherwise it is created from laser scan -->
 	<arg name="Icp/PM"                          default="false"/>       <!--  Use libpointmatcher for ICP registration instead of PCL's implementation -->
     <arg name="Grid/3D"		     		        default="true" />		<!--  A 3D occupancy grid is required if you want an OctoMap (3D ray tracing). Set to false if you want only a 2D map, the cloud will be projected on xy plane. A 2D map can be still generated if checked, but it requires more memory and time to generate it. Ignored if laser scan is 2D and "Grid/FromDepth" is false. -->
@@ -174,19 +174,20 @@
             <remap from="scan_cloud"                    to="$(arg scan_cloud_topic)"/>
             <remap from="odom"                          to="$(arg odom_topic_pub)"/>
           
-            <param name="Reg/Strategy"                  type="string" value="1"/> <!-- 1=ICP -->
-            <param name="frame_id"                      type="string" value="$(arg frame_id)"/>
-            <param name="odom_frame_id"                 type="string" value="$(arg vo_frame_id)"/>
-            <param name="publish_tf"               	    type="bool"   value="$(arg odom_publish_tf)"/>
-            <param name="ground_truth_frame_id"         type="string" value="$(arg ground_truth_frame_id)"/>
-            <param name="ground_truth_base_frame_id"    type="string" value="$(arg ground_truth_base_frame_id)"/>
-            <param name="config_path"                   type="string" value="$(arg cfg)"/>
-            <param name="queue_size"                    type="int"    value="$(arg queue_size)"/>
-            <param name="guess_frame_id"                type="string" value="$(arg odom_guess_frame_id)"/>
-            <param name="guess_min_translation"         type="double" value="$(arg odom_guess_min_translation)"/>
-            <param name="guess_min_rotation"            type="double" value="$(arg odom_guess_min_rotation)"/>
-            <param name="scan_normal_k"                 type="int" value="$(arg scan_normal_k)"/>
-            <param name="scan_normal_radius"            type="double" value="$(arg scan_normal_radius)"/>
+            <param name="Reg/Strategy"                  type="string"   value="1"/> <!-- 1=ICP -->
+            <param name="frame_id"                      type="string"   value="$(arg frame_id)"/>
+            <param name="odom_frame_id"                 type="string"   value="$(arg vo_frame_id)"/>
+            <param name="publish_tf"               	    type="bool"     value="$(arg odom_publish_tf)"/>
+            <param name="ground_truth_frame_id"         type="string"   value="$(arg ground_truth_frame_id)"/>
+            <param name="ground_truth_base_frame_id"    type="string"   value="$(arg ground_truth_base_frame_id)"/>
+            <param name="config_path"                   type="string"   value="$(arg cfg)"/>
+            <param name="queue_size"                    type="int"      value="$(arg queue_size)"/>
+            <param name="guess_frame_id"                type="string"   value="$(arg odom_guess_frame_id)"/>
+            <param name="guess_min_translation"         type="double"   value="$(arg odom_guess_min_translation)"/>
+            <param name="guess_min_rotation"            type="double"   value="$(arg odom_guess_min_rotation)"/>
+            <param name="scan_normal_k"                 type="int"      value="$(arg scan_normal_k)"/>
+            <param name="scan_normal_radius"            type="double"   value="$(arg scan_normal_radius)"/>
+            
             
             <param name="Icp/PointToPlane"		  		    type="bool"     value="$(arg Icp/PointToPlane)" /> 
             <param name="Icp/PM" 	                        type="bool"     value="$(arg Icp/PM)"/>         <!-- Use libpointmatcher for ICP registration instead of PCL's implementation. -->

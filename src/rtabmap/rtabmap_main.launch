@@ -4,6 +4,7 @@
     <arg name="d435"                    default="false" /> 
     <arg name="d435_imu"                default="false" /> 
     <arg name="d435_gps"                default="false" />
+    <arg name="d435_ldmrs"              default="false" /> 
     <arg name="d435_lms100"             default="false" /> 
     <arg name="d435_gps_imu"            default="false" /> 
     <arg name="d435_imu_lms100"         default="false" />
@@ -16,12 +17,18 @@
         
         <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
             <arg name="wait_for_transform_duration"             value="0.3"/>
+            <arg name="subscribe_scan"                          value="true" />
+
         </include>    
         <!-- PARAMETERS OVERRIDE -->    
-        <param name="/rtabmap/rtabmap/Rtabmap/DetectionRate"       	        type="double"       value="1" />  		<!-- Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate. IF YOU CHANGE THIS PARAMETR CHANGE ALSO "Mem/STMSize" ACCORDINGLY, BECAUSE A HIGHER DETECTION RATE NEEDS A BIGGER STM BUFFER. e.g. 1Hz/15nodes 2Hz/30nodes -->
-        <param name="/rtabmap/rtabmap/Mem/STMSize"       			        type="int"          value="15" />
+        <param name="/rtabmap/rtabmap/Rtabmap/DetectionRate"       	        type="double"       value="2" />  		    <!-- Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate. IF YOU CHANGE THIS PARAMETR CHANGE ALSO "Mem/STMSize" ACCORDINGLY, BECAUSE A HIGHER DETECTION RATE NEEDS A BIGGER STM BUFFER. e.g. 1Hz/15nodes 2Hz/30nodes -->
+        <param name="/rtabmap/rtabmap/Mem/STMSize"       			        type="int"          value="30" />
         <param name="/rtabmap/rtabmap/Vis/CorNNDR"                          type="double"       value="0.6" />
         <param name="/rtabmap/rtabmap/Vis/MaxFeatures"                      type="int"          value="1500" />
+        <param name="/rtabmap/rtabmap/OdomF2M/MaxSize"                      type="int"          value="3000" />         <!-- [Visual] Local map size: If > 0 (example 5000), the odometry will maintain a local map of X maximum words. -->
+        <param name="/rtabmap/rgbd_odometry/Vis/MinInliers"                 type="int"          value="15" />
+        <param name="/rtabmap/rtabmap/Reg/Strategy"                         type="int"          value="1" />
+
         
         <!-- These two parameters are to reset odometry when lost -->
         <param name="/rtabmap/rtabmap/Rtabmap/StartNewMapOnLoopClosure"     type="bool"         value="true" />
@@ -43,15 +50,15 @@
         <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
             <arg name="wait_for_transform_duration"             value="0.3"/>
             <arg name="odom_topic_pub"                          value="odom_vis"/>                      <!-- Odometry topic name published by the odometry node (icp or visual) -->
-            <arg name="odom_topic_sub"                          value="odom_vis_gps"/>                  <!-- Odometry topic name subscribed by rtabmap and rtabmapviz -->
+            <arg name="odom_topic_sub"                          value="/odom_vis_gps"/>                  <!-- Odometry topic name subscribed by rtabmap and rtabmapviz -->
+            <arg name="publish_tf"                              value="false" />
         </include>    
         <!-- PARAMETERS OVERRIDE -->    
-        <param name="/rtabmap/rtabmap/Rtabmap/DetectionRate"       	        type="double"       value="1" />  		<!-- Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate. IF YOU CHANGE THIS PARAMETR CHANGE ALSO "Mem/STMSize" ACCORDINGLY, BECAUSE A HIGHER DETECTION RATE NEEDS A BIGGER STM BUFFER. e.g. 1Hz/15nodes 2Hz/30nodes -->
-        <param name="/rtabmap/rtabmap/Mem/STMSize"       			        type="int"          value="15" />
+        <param name="/rtabmap/rtabmap/Rtabmap/DetectionRate"       	        type="double"       value="2" />  		<!-- Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate. IF YOU CHANGE THIS PARAMETR CHANGE ALSO "Mem/STMSize" ACCORDINGLY, BECAUSE A HIGHER DETECTION RATE NEEDS A BIGGER STM BUFFER. e.g. 1Hz/15nodes 2Hz/30nodes -->
+        <param name="/rtabmap/rtabmap/Mem/STMSize"       			        type="int"          value="30" />
         <param name="/rtabmap/rtabmap/Vis/CorNNDR"                          type="double"       value="0.6" />
         <param name="/rtabmap/rtabmap/Vis/MaxFeatures"                      type="int"          value="1500" />
-        <param name="rtabmap/rtabmap/Reg/Force3DoF"             	        type="bool"         value="true" />
-
+        <param name="/rtabmap/rtabmap/Reg/Force3DoF"                        type="bool"         value="true" />
         
         <param name="/rtabmap/rtabmap/Rtabmap/StartNewMapOnLoopClosure"     type="bool"         value="true" />
         <param name="/rtabmap/rgbd_odometry/Odom/ResetCountdown"            type="int"          value="1" />
@@ -62,14 +69,43 @@
     <group if="$(arg d435_lms100)">
         
         <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
-            <arg name="visual_odometry"         	            value="false"/>              
-            <arg name="icp_odometry"             	            value="true"/>              
+            <arg name="visual_odometry"         	            value="false" />              
+            <arg name="icp_odometry"             	            value="true" /> 
+            <arg name="subscribe_scan"                          value="true" />
         </include>
         <!-- PARAMETERS OVERRIDE -->
-        <param name="/rtabmap/rtabmap/Vis/MinInliers"           type="int"          value="20"/>
-        <param name="/rtabmap/rtabmap/subscribe_scan"           type="bool"         value="true" />
-    
+        <param name="/rtabmap/rtabmap/Vis/MinInliers"                       type="int"          value="20" />
+        <param name="/rtabmap/rtabmap/RGBD/NeighborLinkRefining" 		    type="bool"         value="false" />
+        <param name="/rtabmap/icp_odometry/Icp/CorrespondenceRatio"         type="double"       value="0.1" />    <!-- 0.05 -->
+        <param name="/rtabmap/rtabmap/Reg/Strategy"                         type="int"          value="0" />
+
+        <!-- 
+        <param name="/rtabmap/rtabmap/Rtabmap/StartNewMapOnLoopClosure"     type="bool"         value="true" />
+        <param name="/rtabmap/rgbd_odometry/Odom/ResetCountdown"            type="int"          value="1" />
+        -->
     </group>
+    
+
+    
+    <group if="$(arg d435_ldmrs)">
+        
+        <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
+            <arg name="visual_odometry"         	            value="false" />              
+            <arg name="icp_odometry"             	            value="true" /> 
+            <arg name="subscribe_scan_cloud"                    value="true" />
+        </include>
+        <!-- PARAMETERS OVERRIDE -->
+        <param name="/rtabmap/rtabmap/Vis/MinInliers"                       type="int"          value="20" />
+        <param name="/rtabmap/rtabmap/RGBD/NeighborLinkRefining" 		    type="bool"         value="false" />
+        <param name="/rtabmap/icp_odometry/Icp/CorrespondenceRatio"         type="double"       value="0.008" />    <!-- 0.05 -->
+        <param name="/rtabmap/rtabmap/Reg/Strategy"                         type="int"          value="0" />
+
+        <!-- 
+        <param name="/rtabmap/rtabmap/Rtabmap/StartNewMapOnLoopClosure"     type="bool"         value="true" />
+        <param name="/rtabmap/rgbd_odometry/Odom/ResetCountdown"            type="int"          value="1" />
+        -->
+    </group>
+    
     
     
     <group if="$(arg d435_imu_lms100)">
@@ -81,13 +117,15 @@
         
         <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
             <arg name="visual_odometry"         	            value="false"/>              
-            <arg name="icp_odometry"             	            value="true"/>              
+            <arg name="icp_odometry"             	            value="true"/>   
+            <arg name="subscribe_scan"                          value="true" />
         </include>
         
-        <!-- PARAMETERS OVERRIDE -->
-        <param name="/rtabmap/rtabmap/subscribe_scan"           type="bool"     value="true" />
+        <param name="/rtabmap/rtabmap/RGBD/NeighborLinkRefining" 		    type="bool"         value="false" />
+        <param name="/rtabmap/icp_odometry/Icp/CorrespondenceRatio"              type="double"       value="0.1" />    <!-- 0.05 -->
     
     </group>
+    
     
     
     <group if="$(arg d435_gps_lms100)">
@@ -109,14 +147,17 @@
             <arg name="icp_odometry"             	            value="true"/> 
             <arg name="odom_publish_tf"                         value="true"/>
             <arg name="publish_tf"                              value="false" />
+            <arg name="subscribe_scan"                          value="true" />
+
             
             <arg name="odom_topic_pub"                          value="odom_icp"/>                   <!-- Odometry topic name published by the odometry node (icp or visual) -->
             <arg name="odom_topic_sub"                          value="/odom_icp_gps"/>              <!-- Odometry topic name subscribed by rtabmap and rtabmapviz -->             
         </include>
         
-        <!-- PARAMETERS OVERRIDE -->
-        <param name="/rtabmap/rtabmap/subscribe_scan"           type="bool"     value="true" />
+        <param name="/rtabmap/icp_odometry/Icp/CorrespondenceRatio"              type="double"       value="0.06" />    <!-- 0.05 -->
+        
     </group>
+    
     
     
     <group if="$(arg d435_gps_imu_lms100)">
@@ -138,9 +179,9 @@
             <arg name="odom_topic_pub"                          value="odom_icp"/>                      <!-- Odometry topic name published by the odometry node (icp or visual) -->
             <arg name="odom_topic_sub"                          value="/odom_icp_imu_gps"/>              <!-- Odometry topic name subscribed by rtabmap and rtabmapviz -->
             <arg name="publish_tf"                              value="false" />
+            <arg name="subscribe_scan"                          value="true" />
         </include>
         <!-- PARAMETERS OVERRIDE -->
-        <param name="/rtabmap/rtabmap/subscribe_scan"           type="bool"         value="true" />
         <param name="/rtabmap/rtabmap/Odom/Strategy"            type="int"          value="0"/>
     
     </group>
