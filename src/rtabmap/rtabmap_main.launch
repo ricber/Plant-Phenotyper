@@ -24,10 +24,13 @@
         <param name="/rtabmap/rtabmap/Rtabmap/DetectionRate"       	        type="double"       value="2" />  		    <!-- Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate. IF YOU CHANGE THIS PARAMETR CHANGE ALSO "Mem/STMSize" ACCORDINGLY, BECAUSE A HIGHER DETECTION RATE NEEDS A BIGGER STM BUFFER. e.g. 1Hz/15nodes 2Hz/30nodes -->
         <param name="/rtabmap/rtabmap/Mem/STMSize"       			        type="int"          value="30" />
         <param name="/rtabmap/rtabmap/Vis/CorNNDR"                          type="double"       value="0.6" />
-        <param name="/rtabmap/rtabmap/Vis/MaxFeatures"                      type="int"          value="1500" />
-        <param name="/rtabmap/rtabmap/OdomF2M/MaxSize"                      type="int"          value="3000" />         <!-- [Visual] Local map size: If > 0 (example 5000), the odometry will maintain a local map of X maximum words. -->
-        <param name="/rtabmap/rgbd_odometry/Vis/MinInliers"                 type="int"          value="15" />
-        <param name="/rtabmap/rtabmap/Reg/Strategy"                         type="int"          value="1" />
+        <param name="/rtabmap/rtabmap/Vis/MaxFeatures"                      type="int"          value="750" />
+        <param name="/rtabmap/rtabmap/OdomF2M/MaxSize"                      type="int"          value="2000" />         <!-- [Visual] Local map size: If > 0 (example 5000), the odometry will maintain a local map of X maximum words. -->
+        <param name="/rtabmap/rgbd_odometry/Vis/MinInliers"                 type="int"          value="12" />
+        <param name="/rtabmap/rtabmap/Reg/Strategy"                         type="int"          value="0" />
+        <param name="/rtabmap/rgbd_odometry/Reg/Force3DoF"                  type="bool"         value="false" />
+        <param name="/rtabmap/rtabmap/RGBD/NeighborLinkRefining" 		    type="bool"         value="false" />
+
 
         
         <!-- These two parameters are to reset odometry when lost -->
@@ -57,7 +60,7 @@
         <param name="/rtabmap/rtabmap/Rtabmap/DetectionRate"       	        type="double"       value="2" />  		<!-- Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate. IF YOU CHANGE THIS PARAMETR CHANGE ALSO "Mem/STMSize" ACCORDINGLY, BECAUSE A HIGHER DETECTION RATE NEEDS A BIGGER STM BUFFER. e.g. 1Hz/15nodes 2Hz/30nodes -->
         <param name="/rtabmap/rtabmap/Mem/STMSize"       			        type="int"          value="30" />
         <param name="/rtabmap/rtabmap/Vis/CorNNDR"                          type="double"       value="0.6" />
-        <param name="/rtabmap/rtabmap/Vis/MaxFeatures"                      type="int"          value="1500" />
+        <param name="/rtabmap/rtabmap/Vis/MaxFeatures"                      type="int"          value="750" />
         <param name="/rtabmap/rtabmap/Reg/Force3DoF"                        type="bool"         value="true" />
         
         <param name="/rtabmap/rtabmap/Rtabmap/StartNewMapOnLoopClosure"     type="bool"         value="true" />

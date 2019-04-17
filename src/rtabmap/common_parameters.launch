@@ -53,7 +53,7 @@
 	<arg name="subscribe_scan"                  default="false"/>
 	<arg name="scan_topic"                      default="/scan"/>               <!-- Do not provide /scan and /cloud topics at the same time! -->
 	<arg name="subscribe_scan_cloud"            default="false"/>
-	<arg name="scan_cloud_topic"                default="/cloud"/>
+	<arg name="scan_cloud_topic"                default="/_cloud"/>
 	<arg name="scan_normal_k"                   default="0"/>
     <arg name="scan_normal_radius"              default="0.0"/>
  
