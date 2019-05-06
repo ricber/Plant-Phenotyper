@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<!--
+Important Notice: For wheeled robots, odometer input is a requirement for robust
+and accurate tracking. The relevant APIs will be added to librealsense and
+ROS/realsense in upcoming releases. Currently, the API is available in the
+https://github.com/IntelRealSense/librealsense/blob/master/third-party/libtm/libtm/include/TrackingDevice.h#L508-L515.
+-->
+<launch>
+    
+    <include file="$(find plant-phenotyper)/src/camera/common_camera_parameters.launch" >
+        <arg name="serial_no"                   value="905312110424"/>   <!-- t265 -->
+        <arg name="camera"                      value="t265"/>
+        
+        <arg name="enable_color"                value="false"/>
+        <arg name="enable_depth"                value="false"/>
+        
+        <arg name="fisheye_width"               value="848"/> 
+        <arg name="fisheye_height"              value="800"/>
+        <arg name="enable_fisheye1"             value="true"/>
+        <arg name="enable_fisheye2"             value="true"/>
+        
+        <arg name="enable_gyro"                 value="true"/>
+        <arg name="enable_accel"                value="true"/>
+        <arg name="gyro_fps"                    value="200"/>
+        <arg name="accel_fps"                   value="62"/>
+        
+        <arg name="enable_sync"                 value="false"/>
+        <arg name="initial_reset"               value="false"/>
+        <arg name="unite_imu_method"            value=""/>
+    </include>  
+    
+    <!--     TF    -->
+    <node pkg="tf" type="static_transform_publisher" name="t265_link_broadcaster" args="0 0 0 0 0 0 base_link t265_link 33" />
+    
+</launch>

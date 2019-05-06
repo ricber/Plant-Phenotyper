@@ -2,12 +2,12 @@
 <launch>
   <!-- start the actual driver node -->
   <node name="sick_ldmrs_node" pkg="sick_ldmrs_driver" type="sick_ldmrs_node" output="screen">
-	 <param name="frame_id" type="string" value="base_laser_link" />
+	 <param name="frame_id" type="string" value="ldmrs_link" />
     <param name="scan_frequency" type="int" value="0" />
     <param name="hostname" type="string" value="192.168.1.200" />
   </node>
   
-  <node pkg="tf" type="static_transform_publisher" name="base_laser_link_broadcaster" args="0.188 0.175 0.015 0 0 0 base_link base_laser_link 12.5" />
+  <node pkg="tf" type="static_transform_publisher" name="ldmrs_link_broadcaster" args="0.188 0.175 0.015 0 0 0 base_link ldmrs_link 12.5" />
   
 </launch>
 

@@ -19,3 +19,5 @@ rostopic hz /camera/aligned_depth_to_color/image_raw /fix /scan /cloud /f746zg_i
 rostopic echo /camera/color/image_raw | grep height
 
 rosbag filter 2019-04-01-18-55-37.bag 2019-04-01-18-55-37-no-scan.bag "topic != '/scan'"
+
+rosrun rqt_reconfigure rqt_reconfigure
