@@ -50,14 +50,12 @@
         </include>
         
         
-        <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
+        <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters(backup).launch">
             <arg name="wait_for_transform_duration"             value="0.3"/>
             <arg name="odom_topic_pub"                          value="odom_vis"/>                      <!-- Odometry topic name published by the odometry node (icp or visual) -->
             <arg name="odom_topic_sub"                          value="/odom_vis_gps"/>                  <!-- Odometry topic name subscribed by rtabmap and rtabmapviz -->
             <arg name="publish_tf"                              value="false" />
-        </include>  
-        
-          
+        </include>    
         <!-- PARAMETERS OVERRIDE -->    
         <param name="/rtabmap/rtabmap/Rtabmap/DetectionRate"       	        type="double"       value="2" />  		<!-- Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate. IF YOU CHANGE THIS PARAMETR CHANGE ALSO "Mem/STMSize" ACCORDINGLY, BECAUSE A HIGHER DETECTION RATE NEEDS A BIGGER STM BUFFER. e.g. 1Hz/15nodes 2Hz/30nodes -->
         <param name="/rtabmap/rtabmap/Mem/STMSize"       			        type="int"          value="30" />

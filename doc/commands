@@ -1,21 +1,25 @@
-rosrun tf static_transform_publisher 0.155 0 0.17 0 0 0 base_link base_laser_link 25
+rosrun tf static_transform_publisher 0.0047 0 -0.108 3.1416 -1.5708 0 base_link lms100_link 20
 
-rosrun tf static_transform_publisher 0.008 -0.253 0.065 -1.5708 0 -1.5708 base_link camera_link 33
+rosrun tf static_transform_publisher -0.023 0.02 0.18 0 0 0 base_link ldmrs_link 80
 
-rosrun tf static_transform_publisher -0.005 0.18 0.02 3.1416 0 0 base_link imu_link 100
+rosrun tf static_transform_publisher -0.16 -0.346 0.282 1.5708 -3.1416 1.5708 base_link d435_link 33.3
 
-rosrun tf static_transform_publisher 0.0 -0.14 0.30 0 0 0 base_link gps 50
+rosrun tf static_transform_publisher -0.16 0.346 0.282 1.5708 0 1.5708 base_link d435i_link 33.3
 
-<node pkg="tf" type="static_transform_publisher" name="base_laser_link_broadcaster" args="0.188 0.175 0.015 0 0 0 base_link base_laser_link 12.5" />
+rosrun tf static_transform_publisher -0.195 -0.082 0.49 0 0 0 base_link gps 200
 
-xrandr --fb 1920x1080
+rosrun tf static_transform_publisher ? base_link imu 6
+
+Dell xps
+xrandr --fb 1920x1080 
+
+Vostro
+xrandr --fb 1280x720 
 
 screen /dev/ttyACM0 115200 
 
-rosbag record -b 0 --lz4 /camera/color/image_raw /camera/color/camera_info /camera/aligned_depth_to_color/image_raw /camera/depth/camera_info /camera/imu /tf_static /tf /scan /cloud /fix /f746zg_imu/data_raw /f746zg_imu/mag
+rosbag record -b 0 --lz4 /d435/color/image_raw /d435/color/camera_info /d435/aligned_depth_to_color/image_raw /d435/infra1/image_rect_raw /d435i/color/image_raw /d435i/color/camera_info /d435i/aligned_depth_to_color/image_raw /d435i/infra1/image_rect_raw /d435i/imu /tf_static /tf /scan /cloud /fix /f746zg_imu/data_raw /f746zg_imu/mag
 
-rostopic hz /camera/aligned_depth_to_color/image_raw /fix /scan /cloud /f746zg_imu/data_raw
+rostopic hz /d435i/aligned_depth_to_color/image_raw /fix /scan /cloud /f746zg_imu/data_raw
 
-rostopic echo /camera/color/image_raw | grep height
 
-rosbag filter 2019-04-01-18-55-37.bag 2019-04-01-18-55-37-no-scan.bag "topic != '/scan'"

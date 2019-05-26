@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<launch>
+    <include file="$(find plant-phenotyper)/src/camera/common_camera_parameters.launch" >
+        <arg name="serial_no"                   value="843112073798"/>   <!-- d435i -->
+        <arg name="camera"                      value="d435i"/>
+        
+        <arg name="color_width"                 value="1280"/> <!-- Possible values: 424x240 640x360 640x480(default) 848x480 960x540 1280x720 1920x1080 -->
+        <arg name="color_height"                value="720"/> 
+            
+        <arg name="enable_gyro"                 value="true"/>
+        <arg name="enable_accel"                value="true"/>
+        <arg name="unite_imu_method" 		    value="linear_interpolation"/>
+    </include>  
+  
+    <!--     TF    -->
+    <node pkg="tf" type="static_transform_publisher" name="d435i_link_broadcaster" args="-0.16 0.346 0.282 1.5708 0 1.5708 base_link d435i_link 33.3" />
+  
+</launch>

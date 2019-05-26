@@ -35,8 +35,7 @@
                                         false,false,false]</rosparam>
         <param name="imu0_differential" value="false"/>
         <param name="imu0_relative" value="false"/>
-        
-        <param name="use_control" value="false"/>
+
     </node>	
       
         <!-- GPS integration with navsat transform node -->

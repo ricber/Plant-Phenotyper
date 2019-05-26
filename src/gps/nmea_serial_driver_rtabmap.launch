@@ -16,6 +16,6 @@
   </node>
   
    <!--     TF    -->
-  <node pkg="tf" type="static_transform_publisher" name="gps_link_broadcaster" args="0.0 -0.14 0.30 0 0 0 base_link gps 50" />
+  <node pkg="tf" type="static_transform_publisher" name="gps_link_broadcaster" args="-0.195 -0.082 0.49 0 0 0 base_link gps 200" />
 
 </launch>
