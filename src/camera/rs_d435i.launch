@@ -6,7 +6,7 @@
         
         <arg name="color_width"                 value="1280"/> <!-- Possible values: 424x240 640x360 640x480(default) 848x480 960x540 1280x720 1920x1080 -->
         <arg name="color_height"                value="720"/> 
-            
+
         <arg name="enable_gyro"                 value="true"/>
         <arg name="enable_accel"                value="true"/>
         <arg name="unite_imu_method" 		    value="linear_interpolation"/>
