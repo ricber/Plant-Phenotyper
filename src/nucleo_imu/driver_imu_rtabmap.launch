@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <launch>
 	
-	<rosparam command="load" file="$(find nucleof746zg_IMU_driver)/config/imu_params.yaml"/>
-	<node name="nucleof746zg_driver" pkg="nucleof746zg_IMU_driver" type="nucleof746zg_IMU_driver" output="screen"/>
+	<rosparam command="load" file="$(find nucleof746zg_imu_driver)/config/imu_params.yaml"/>
+	<node name="nucleof746zg_driver" pkg="nucleof746zg_imu_driver" type="nucleof746zg_imu_driver" output="screen"/>
     
     <!--      TF      -->
-    <node pkg="tf" type="static_transform_publisher" name="imu_link_broadcaster" args="-0.005 0.18 0.02 3.1416 0 0 base_link imu 6" />
+    <node pkg="tf" type="static_transform_publisher" name="imu_link_broadcaster" args="-0.10 0 0.04 3.1416 0 0 base_link imu 6" /> <!-- IMU needs a sound calibration, for example with Kalibr -->
 </launch>

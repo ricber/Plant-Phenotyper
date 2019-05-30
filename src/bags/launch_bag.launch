@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<launch>	
+    
+    <param name ="/use_sim_time"                    value="true"/>
+
+    
+    <node pkg="rosbag" type="play" name="player" output="screen" args="--clock -r 0.2 /home/riccardo/2019-05-24-09-53-28-high-density.bag"/>
+    
+    
+    <node pkg="rostopic" type="rostopic" name="echo_rosout" output="screen" args="echo /rosout"/>
+    
+    
+</launch>
