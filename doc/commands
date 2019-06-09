@@ -26,3 +26,6 @@ rostopic hz /d435i/aligned_depth_to_color/image_raw /fix /scan /cloud /f746zg_im
 rosbag filter 2019-04-01-18-55-37.bag 2019-04-01-18-55-37-no-scan.bag "topic != '/scan'"
 
 rosrun rqt_reconfigure rqt_reconfigure
+
+rosrun pcl_ros pointcloud_to_pcd input:=/points2
+

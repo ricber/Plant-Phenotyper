@@ -25,7 +25,7 @@
 	<arg name="database_path"                   default="~/.ros/rtabmap.db"/>
 	<arg name="queue_size"                      default="10"/>
 	<arg name="wait_for_transform_duration"     default="0.3"/>
-	<arg name="args"                            default="-d"/>                  <!-- delete_db_on_start, udebug -->
+	<arg name="args"                            default="-d --udebug"/>                  <!-- delete_db_on_start, udebug -->
 	<arg name="launch_prefix"                   default=""/>                    <!-- for debugging purpose, it fills launch-prefix tag of the nodes -->
 	<arg name="output"                          default="screen"/>              <!-- Control node output (screen or log) -->
 	<arg name="publish_tf"				        default="true" /> 			    <!-- publish TF from /map to /odom -->
