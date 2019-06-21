@@ -8,14 +8,20 @@ project(plant-phenotyper)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-    roscpp
-    rospy
-    rosbag
-    geometry_msgs
+  roscpp
+  rospy
+  rosbag
+  geometry_msgs
+  #pcl
+  #pcl_conversions
+  #pcl_msgs
+  pcl_ros
 )
 
 ## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
+#find_package(PCL REQUIRED)
+find_package(Eigen3 REQUIRED)
+#find_package(Boost REQUIRED COMPONENTS system thread)
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -106,8 +112,12 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES plant-phenotyper
-#  CATKIN_DEPENDS other_catkin_pkg
-#  DEPENDS system_lib
+#  CATKIN_DEPENDS
+#  	pcl_conversions
+#  DEPENDS
+#  	Boost
+#  	Eigen
+#  	PCL
 )
 
 ###########
@@ -116,10 +126,17 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
+set(PCL_INCLUDE_DIRS /usr/local/include/pcl-1.9)
+
 include_directories(
-# include
- ${catkin_INCLUDE_DIRS}
+   include
+    ${catkin_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIRS}
+    ${PCL_INCLUDE_DIRS}
+    ${Boost_INCLUDE_DIRS}
 )
+
+link_directories(${PCL_LIBRARY_DIRS}) # says to the compiler where to look for (also) libraries
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -135,7 +152,7 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/plant-phenotyper_node.cpp)
-# add_executable(add_tf_2_bag_node src/roscpp/add_tf_2_bag_node.cpp)
+add_executable(assemble_scans_node src/post-processing/assemble_scans_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -148,9 +165,9 @@ include_directories(
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(add_tf_2_bag_node
-#   ${catkin_LIBRARIES}
-# )
+ target_link_libraries(assemble_scans_node
+   ${catkin_LIBRARIES}
+ )
 
 #############
 ## Install ##
