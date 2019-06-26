@@ -26,10 +26,12 @@ int main (int argc, char** argv)
     // Datasets
     pcl::PointCloud<PointT>::Ptr cloud (new pcl::PointCloud<PointT>);
     pcl::PointCloud<PointT>::Ptr cloud_filtered (new pcl::PointCloud<PointT>);
+    pcl::PointCloud<PointT>::Ptr cloud_filtered2 (new pcl::PointCloud<PointT>);
+    pcl::PointCloud<pcl::Normal>::Ptr cloud_normals2 (new pcl::PointCloud<pcl::Normal>);
     pcl::IndicesPtr indices (new std::vector<int>);
     pcl::PointCloud<pcl::Normal>::Ptr cloud_normals (new pcl::PointCloud<pcl::Normal>);
-    pcl::ModelCoefficients::Ptr coefficients_cylinder (new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliers_cylinder (new pcl::PointIndices);
+    pcl::ModelCoefficients::Ptr coefficients_cylinder (new pcl::ModelCoefficients), coefficients_plane (new pcl::ModelCoefficients);
+    pcl::PointIndices::Ptr inliers_cylinder (new pcl::PointIndices), inliers_plane (new pcl::PointIndices);
 
     
     // Read in the cloud data
@@ -47,10 +49,10 @@ int main (int argc, char** argv)
     
     // remove ground points and points above the plants
     pass.setFilterFieldName ("z");
-    pass.setFilterLimits (-0.8, 2.0);
+    pass.setFilterLimits (-0.7, -0.17);
     pass.filter (*indices);
     pass.setIndices (indices);
-    
+
     // remove low intensity points
     pass.setFilterFieldName ("intensity");
     pass.setFilterLimits (FLT_MIN, FLT_MAX); // now is deactivated
@@ -59,7 +61,54 @@ int main (int argc, char** argv)
     
     writer.write ("test_filtered_pcd.pcd", *cloud_filtered, true); // the boolean flag is for binary (true) or ASCII (false) file format
     std::cerr << "PointCloud after filtering has: " << cloud_filtered->points.size () << " data points." << std::endl;
+    
+    // Estimate point normals
+    ne.setSearchMethod (tree);
+    ne.setInputCloud (cloud_filtered);
+    ne.setKSearch (50);
+    ne.compute (*cloud_normals);
+    
+    // Create the segmentation object for the planar model and set all the parameters
+    seg.setOptimizeCoefficients (true);
+    seg.setModelType (pcl::SACMODEL_NORMAL_PLANE);
+    seg.setNormalDistanceWeight (0.1);
+    seg.setMethodType (pcl::SAC_RANSAC);
+    seg.setMaxIterations (100);
+    seg.setDistanceThreshold (0.17);
+    seg.setInputCloud (cloud_filtered);
+    seg.setInputNormals (cloud_normals);
+    // Obtain the plane inliers and coefficients
+    seg.segment (*inliers_plane, *coefficients_plane);
+    if (inliers_plane->indices.size () == 0)
+    { 
+        PCL_ERROR ("Could not estimate a planar model for the given dataset.");
+        return (-1);
+    }
+    std::cerr << "Plane coefficients: " << *coefficients_plane << std::endl;
 
+     // Extract the planar inliers from the input cloud
+    extract.setInputCloud (cloud_filtered);
+    extract.setIndices (inliers_plane);
+    extract.setNegative (false);
+    
+    // Write the planar inliers to disk
+    pcl::PointCloud<PointT>::Ptr cloud_plane (new pcl::PointCloud<PointT> ());
+    extract.filter (*cloud_plane);
+    std::cerr << "PointCloud representing the planar component: " << cloud_plane->points.size () << " data points." << std::endl;
+    writer.write ("test_plane_pcd.pcd", *cloud_plane, false);
+    
+    // Remove the planar inliers, extract the rest
+    extract.setNegative (true);
+    extract.filter (*cloud_filtered2);
+    extract_normals.setNegative (true);
+    extract_normals.setInputCloud (cloud_normals);
+    extract_normals.setIndices (inliers_plane);
+    extract_normals.filter (*cloud_normals2);
+    
+    std::cerr << "PointCloud representing the cylindrical components: " << cloud_filtered2->points.size () << " data points." << std::endl;
+    writer.write ("test_filtered2_pcd.pcd", *cloud_filtered2, false);
+   
+    /*
     // Estimate point normals
     ne.setSearchMethod (tree);
     ne.setInputCloud (cloud_filtered);
@@ -110,7 +159,7 @@ int main (int argc, char** argv)
         extract.setInputCloud (cloud_filtered);
     }
     while (!temp_cylinder->points.empty ());
-    
+   
     if (cloud_cylinder->points.empty ())
         std::cerr << "Can't find the cylindrical component." << std::endl;
     else
@@ -118,5 +167,6 @@ int main (int argc, char** argv)
         std::cerr << "PointCloud representing the cylindrical component: " << cloud_cylinder->points.size () << " data points." << std::endl;
         writer.write ("test_cylinders.pcd", *cloud_cylinder, false);
     }
+    */
     return (0);
 }
