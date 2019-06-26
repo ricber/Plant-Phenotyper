@@ -81,9 +81,6 @@ int main (int argc, char** argv)
 
     // segment until there are no remaining cylinders
     pcl::PointCloud<PointT>::Ptr temp_cylinder (new pcl::PointCloud<PointT>()), cloud_cylinder (new pcl::PointCloud<PointT>());
-    // #### DEBUG #####
-    int i = 0;
-    // ###############
     do
     {
         // Obtain the cylinder inliers and coefficients
@@ -111,14 +108,9 @@ int main (int argc, char** argv)
         seg.setInputCloud (cloud_filtered); 
         seg.setInputNormals (cloud_normals);
         extract.setInputCloud (cloud_filtered);
-        // #### DEBUG #####
-        i++;
-        // ###############
     }
-    // while (!temp_cylinder->points.empty ());
-    // #### DEBUG #####
-    while (i < 10);
-    // ###############
+    while (!temp_cylinder->points.empty ());
+    
     if (cloud_cylinder->points.empty ())
         std::cerr << "Can't find the cylindrical component." << std::endl;
     else
