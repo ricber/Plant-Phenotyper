@@ -8,6 +8,9 @@
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/segmentation/extract_clusters.h>
+#include <pcl/kdtree/kdtree.h>
 
 typedef pcl::PointXYZI PointT;
 
@@ -32,6 +35,7 @@ int main (int argc, char** argv)
     pcl::PointCloud<pcl::Normal>::Ptr cloud_normals (new pcl::PointCloud<pcl::Normal>);
     pcl::ModelCoefficients::Ptr coefficients_cylinder (new pcl::ModelCoefficients), coefficients_plane (new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers_cylinder (new pcl::PointIndices), inliers_plane (new pcl::PointIndices);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cloud;
 
     
     // Read in the cloud data
@@ -61,6 +65,16 @@ int main (int argc, char** argv)
     
     writer.write ("test_filtered_pcd.pcd", *cloud_filtered, true); // the boolean flag is for binary (true) or ASCII (false) file format
     std::cerr << "PointCloud after filtering has: " << cloud_filtered->points.size () << " data points." << std::endl;
+    
+    // Create the outlier filtering object
+    pcl::StatisticalOutlierRemoval<PointT> sor;
+    sor.setInputCloud (cloud_filtered);
+    sor.setMeanK (50);
+    sor.setStddevMulThresh (1.0);
+    sor.filter (*cloud_filtered);
+    
+    writer.write ("test_outlier_removed_pcd.pcd", *cloud_filtered, true); // the boolean flag is for binary (true) or ASCII (false) file format
+    std::cerr << "PointCloud after ourlier removal has: " << cloud_filtered->points.size () << " data points." << std::endl;
     
     // Estimate point normals
     ne.setSearchMethod (tree);
@@ -107,66 +121,68 @@ int main (int argc, char** argv)
     
     std::cerr << "PointCloud representing the cylindrical components: " << cloud_filtered2->points.size () << " data points." << std::endl;
     writer.write ("test_filtered2_pcd.pcd", *cloud_filtered2, false);
-   
-    /*
-    // Estimate point normals
-    ne.setSearchMethod (tree);
-    ne.setInputCloud (cloud_filtered);
-    ne.setKSearch (50);
-    ne.compute (*cloud_normals);
     
-    // Create the segmentation object for cylinder segmentation and set all the parameters
-    seg.setOptimizeCoefficients (true); // Set to true if a coefficient refinement by least square method is required
-    seg.setModelType (pcl::SACMODEL_CYLINDER);
-    seg.setMethodType (pcl::SAC_RANSAC);
-    seg.setNormalDistanceWeight (0.1);
-    seg.setMaxIterations (10000);
-    seg.setDistanceThreshold (0.05);
-    seg.setRadiusLimits (0, 0.03); // radius of the cylinder
-    seg.setInputCloud (cloud_filtered); 
-    seg.setInputNormals (cloud_normals);
-    
-    extract.setInputCloud (cloud_filtered);
+     // Creating the KdTree object for the search method of the extraction
+    tree->setInputCloud (cloud_filtered2);
 
-    // segment until there are no remaining cylinders
-    pcl::PointCloud<PointT>::Ptr temp_cylinder (new pcl::PointCloud<PointT>()), cloud_cylinder (new pcl::PointCloud<PointT>());
-    do
+    std::vector<pcl::PointIndices> cluster_indices;
+    pcl::EuclideanClusterExtraction<PointT> ec;
+    ec.setClusterTolerance (0.02); // 2cm
+    ec.setMinClusterSize (400);
+    ec.setMaxClusterSize (2000);
+    ec.setSearchMethod (tree);
+    ec.setInputCloud (cloud_filtered2);
+    ec.extract (cluster_indices);
+
+    std::vector <pcl::PointIndices> clusters_ = cluster_indices;
+    pcl::PointCloud<PointT>::Ptr input_ = cloud_filtered2;
+    if (!clusters_.empty ())
     {
-        // Obtain the cylinder inliers and coefficients
-        seg.segment (*inliers_cylinder, *coefficients_cylinder);
-        std::cerr << "Cylinder coefficients: " << *coefficients_cylinder << std::endl;
+        colored_cloud = (new pcl::PointCloud<pcl::PointXYZRGB>)->makeShared ();
 
-        // Write the cylinder inliers to disk
-        extract.setNegative (false);
-        extract.setIndices (inliers_cylinder);
+        srand (static_cast<unsigned int> (time (0)));
+        std::vector<unsigned char> colors;
+        for (size_t i_segment = 0; i_segment < clusters_.size (); i_segment++)
+        {
+            colors.push_back (static_cast<unsigned char> (rand () % 256));
+            colors.push_back (static_cast<unsigned char> (rand () % 256));
+            colors.push_back (static_cast<unsigned char> (rand () % 256));
+        }
         
-        // add the found cylinder to a point cloud
-        extract.filter (*temp_cylinder);
-        // const pcl::PointCloud<PointT> *temp_cyl_ptr = temp_cylinder;
-        *cloud_cylinder = cloud_cylinder->operator+=(*temp_cylinder);
+        colored_cloud->width = input_->width;
+        colored_cloud->height = input_->height;
+        colored_cloud->is_dense = input_->is_dense;
+        for (size_t i_point = 0; i_point < input_->points.size (); i_point++)
+        {
+            pcl::PointXYZRGB point;
+            point.x = *(input_->points[i_point].data);
+            point.y = *(input_->points[i_point].data + 1);
+            point.z = *(input_->points[i_point].data + 2);
+            point.r = 255;
+            point.g = 0;
+            point.b = 0;
+            colored_cloud->points.push_back (point);
+        }
         
-        // set the extract object to remove the last found cylinder
-        extract.setNegative (true);
-        extract.filter (*cloud_filtered);
-        extract_normals.setNegative (true);
-        extract_normals.setInputCloud (cloud_normals);
-        extract_normals.setIndices (inliers_cylinder);
-        extract_normals.filter (*cloud_normals);
-        
-        // set the new clouds without the found cylinder
-        seg.setInputCloud (cloud_filtered); 
-        seg.setInputNormals (cloud_normals);
-        extract.setInputCloud (cloud_filtered);
+        std::vector< pcl::PointIndices >::iterator i_segment;
+        int next_color = 0;
+        for (i_segment = clusters_.begin (); i_segment != clusters_.end (); i_segment++)
+        {
+            std::vector<int>::iterator i_point;
+            for (i_point = i_segment->indices.begin (); i_point != i_segment->indices.end (); i_point++)
+            {
+                int index;
+                index = *i_point;
+                colored_cloud->points[index].r = colors[3 * next_color];
+                colored_cloud->points[index].g = colors[3 * next_color + 1];
+                colored_cloud->points[index].b = colors[3 * next_color + 2];
+            }
+            next_color++;
+        }
     }
-    while (!temp_cylinder->points.empty ());
+
+    std::cout << "PointCloud representing the Cluster: " << colored_cloud->points.size () << " data points." << std::endl;
+    writer.write ("test_colored_cloud_pcd.pcd", *colored_cloud, false); 
    
-    if (cloud_cylinder->points.empty ())
-        std::cerr << "Can't find the cylindrical component." << std::endl;
-    else
-    {
-        std::cerr << "PointCloud representing the cylindrical component: " << cloud_cylinder->points.size () << " data points." << std::endl;
-        writer.write ("test_cylinders.pcd", *cloud_cylinder, false);
-    }
-    */
     return (0);
 }
