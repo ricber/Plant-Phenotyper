@@ -11,6 +11,8 @@
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/kdtree/kdtree.h>
+#include <pcl/common/centroid.h>
+#include <pcl/ml/kmeans.h>
 
 typedef pcl::PointXYZI PointT;
 
@@ -40,8 +42,7 @@ int main (int argc, char** argv)
     
     // Read in the cloud data
     reader.read ("test_pcd.pcd", *cloud);
-    std::cerr << "PointCloud has: " << cloud->points.size () << " data points." << std::endl;
-    
+    std::cout << "PointCloud has: " << cloud->points.size () << " data points." << std::endl;
 
     // ### FILTERING ###
     // remove lateral points outside the vineyard row
@@ -64,7 +65,7 @@ int main (int argc, char** argv)
     pass.filter (*cloud_filtered);
     
     writer.write ("test_filtered_pcd.pcd", *cloud_filtered, true); // the boolean flag is for binary (true) or ASCII (false) file format
-    std::cerr << "PointCloud after filtering has: " << cloud_filtered->points.size () << " data points." << std::endl;
+    std::cout << "PointCloud after filtering has: " << cloud_filtered->points.size () << " data points." << std::endl;
     
     // Create the outlier filtering object
     pcl::StatisticalOutlierRemoval<PointT> sor;
@@ -74,7 +75,7 @@ int main (int argc, char** argv)
     sor.filter (*cloud_filtered);
     
     writer.write ("test_outlier_removed_pcd.pcd", *cloud_filtered, true); // the boolean flag is for binary (true) or ASCII (false) file format
-    std::cerr << "PointCloud after ourlier removal has: " << cloud_filtered->points.size () << " data points." << std::endl;
+    std::cout << "PointCloud after ourlier removal has: " << cloud_filtered->points.size () << " data points." << std::endl;
     
     // Estimate point normals
     ne.setSearchMethod (tree);
@@ -98,7 +99,7 @@ int main (int argc, char** argv)
         PCL_ERROR ("Could not estimate a planar model for the given dataset.");
         return (-1);
     }
-    std::cerr << "Plane coefficients: " << *coefficients_plane << std::endl;
+    std::cout << "Plane coefficients: " << *coefficients_plane << std::endl;
 
      // Extract the planar inliers from the input cloud
     extract.setInputCloud (cloud_filtered);
@@ -108,7 +109,7 @@ int main (int argc, char** argv)
     // Write the planar inliers to disk
     pcl::PointCloud<PointT>::Ptr cloud_plane (new pcl::PointCloud<PointT> ());
     extract.filter (*cloud_plane);
-    std::cerr << "PointCloud representing the planar component: " << cloud_plane->points.size () << " data points." << std::endl;
+    std::cout << "PointCloud representing the planar component: " << cloud_plane->points.size () << " data points." << std::endl;
     writer.write ("test_plane_pcd.pcd", *cloud_plane, false);
     
     // Remove the planar inliers, extract the rest
@@ -119,23 +120,25 @@ int main (int argc, char** argv)
     extract_normals.setIndices (inliers_plane);
     extract_normals.filter (*cloud_normals2);
     
-    std::cerr << "PointCloud representing the cylindrical components: " << cloud_filtered2->points.size () << " data points." << std::endl;
+    std::cout << "PointCloud representing the cylindrical components: " << cloud_filtered2->points.size () << " data points." << std::endl;
     writer.write ("test_filtered2_pcd.pcd", *cloud_filtered2, false);
     
      // Creating the KdTree object for the search method of the extraction
     tree->setInputCloud (cloud_filtered2);
 
+    // Euclidean Cluster Extraction
     std::vector<pcl::PointIndices> cluster_indices;
     pcl::EuclideanClusterExtraction<PointT> ec;
-    ec.setClusterTolerance (0.02); // 2cm
-    ec.setMinClusterSize (400);
-    ec.setMaxClusterSize (2000);
+    ec.setClusterTolerance (0.05); // 2cm
+    ec.setMinClusterSize (100);
+    ec.setMaxClusterSize (10000);
     ec.setSearchMethod (tree);
     ec.setInputCloud (cloud_filtered2);
     ec.extract (cluster_indices);
 
     std::vector <pcl::PointIndices> clusters_ = cluster_indices;
     pcl::PointCloud<PointT>::Ptr input_ = cloud_filtered2;
+    std::vector< pcl::Kmeans::Point > centroids(cluster_indices.size());
     if (!clusters_.empty ())
     {
         colored_cloud = (new pcl::PointCloud<pcl::PointXYZRGB>)->makeShared ();
@@ -177,12 +180,48 @@ int main (int argc, char** argv)
                 colored_cloud->points[index].g = colors[3 * next_color + 1];
                 colored_cloud->points[index].b = colors[3 * next_color + 2];
             }
-            next_color++;
+            
+            
+            Eigen::Vector4f centroid;
+            pcl::compute3DCentroid (*cloud_filtered2, i_segment->indices, centroid);
+            std::vector<float> & centroid_vector = centroids[next_color];
+            for (int i = 0; i < 3; i++) {
+                centroid_vector.push_back (centroid[i]);
+            }  
+            
+            /* // DEBUG
+            std::cout << next_color << "_cent output: x: " << centroids[next_color][0] << " ,";
+            std::cout << "y: " << centroids[next_color][1] << " ,";
+            std::cout << "z: " << centroids[next_color][2] << std::endl;
+            }  
+            */       
+            
+            next_color++;       
         }
     }
 
-    std::cout << "PointCloud representing the Cluster: " << colored_cloud->points.size () << " data points." << std::endl;
+    std::cout << "PointCloud representing the clusters: " << colored_cloud->points.size () << " data points." << std::endl;
     writer.write ("test_colored_cloud_pcd.pcd", *colored_cloud, false); 
+    
+    // Kmeans computation
+    pcl::Kmeans kmeans(static_cast<int> (cloud_filtered2->points.size()), 3);
+    kmeans.setClusterSize(cluster_indices.size());
+    kmeans.setClusterCentroids(centroids);
+    // ADD DATA POINTS TO KMEANS!
+      
+    kmeans.kMeans();
+    
+    pcl::Kmeans::Centroids ret_centroids = kmeans.get_centroids();    
+    /* // DEBUG
+     std::cout << "centroid count: " << ret_centroids.size() << std::endl;
+        for (int i = 0; i<ret_centroids.size(); i++)
+        {
+            std::cout << i << "_cent output: x: " << ret_centroids[i][0] << " ,";
+            std::cout << "y: " << ret_centroids[i][1] << " ,";
+            std::cout << "z: " << ret_centroids[i][2] << std::endl;
+        }
+    */
+    
    
     return (0);
 }
