@@ -13,220 +13,209 @@
 #include <pcl/kdtree/kdtree.h>
 #include <pcl/common/centroid.h>
 #include <pcl/ml/kmeans.h>
+#include <pcl/visualization/pcl_visualizer.h>
+#include <pcl/common/transforms.h>
 
 typedef pcl::PointXYZI PointT;
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr getColoredCloud ();
+
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr getColoredCloud (pcl::PointCloud<PointT>& input, std::vector <pcl::PointIndices>& clusters, std::size_t num_clusters);
+pcl::PointCloud<PointT>::Ptr filter (pcl::PointCloud<PointT>::Ptr input);
+pcl::PointCloud<PointT>::Ptr remove_ground (pcl::PointCloud<PointT>::Ptr input);
+pcl::PointCloud<PointT>::Ptr remove_central_lidar_trace (pcl::PointCloud<PointT>::Ptr input);
+pcl::PointCloud<PointT>::Ptr filter_z (pcl::PointCloud<PointT>::Ptr input);
+std::vector<pcl::PointIndices> cluster_trunks (pcl::PointCloud<PointT>::Ptr input);
+std::vector<pcl::Kmeans::Point> kmeans_centroids_computation(pcl::PointCloud<PointT>::Ptr input, std::vector<pcl::PointIndices> &input_clusters_indices);
+std::vector<pcl::PointIndices> cluster_kmeans (pcl::PointCloud<PointT>::Ptr input, std::vector<pcl::Kmeans::Point> &centroids);
+pcl::PointCloud<PointT>::Ptr transform (pcl::PointCloud<PointT>::Ptr input);
+void visualize (pcl::PointCloud<PointT>::Ptr source_cloud, pcl::PointCloud<PointT>::Ptr transformed_cloud);
+
+
 
 int main (int argc, char** argv)
 {
     // All the objects needed
     pcl::PCDReader reader;
-    pcl::PassThrough<PointT> pass;
-    pcl::NormalEstimation<PointT, pcl::Normal> ne;
-    pcl::SACSegmentationFromNormals<PointT, pcl::Normal> seg; 
     pcl::PCDWriter writer;
-    pcl::ExtractIndices<PointT> extract;
-    //pcl::ExtractIndices<pcl::Normal> extract_normals;
-    pcl::search::KdTree<PointT>::Ptr tree (new pcl::search::KdTree<PointT> ());
+    std::vector<pcl::PointIndices> trunks_clusters_indices;
     
     // Datasets
     pcl::PointCloud<PointT>::Ptr cloud (new pcl::PointCloud<PointT>);
-    pcl::PointCloud<PointT>::Ptr cloud_filtered (new pcl::PointCloud<PointT>), trunks_filtered (new pcl::PointCloud<PointT>), cloud_filtered2 (new pcl::PointCloud<PointT>);
-    pcl::PointCloud<pcl::Normal>::Ptr cloud_normals (new pcl::PointCloud<pcl::Normal>);
-    pcl::PointCloud<pcl::Normal>::Ptr cloud_normals2 (new pcl::PointCloud<pcl::Normal>);
-    pcl::IndicesPtr indices (new std::vector<int>);
-    pcl::ModelCoefficients::Ptr coefficients_cylinder (new pcl::ModelCoefficients), coefficients_plane (new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliers_cylinder (new pcl::PointIndices), inliers_plane (new pcl::PointIndices);
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cloud;
+    pcl::PointCloud<PointT>::Ptr cloud_filtered, trunks_filtered, cloud_filtered2, cloud_filtered3, transformed_cloud, final_cloud; // (new pcl::PointCloud<PointT>)
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr trunks_colored, final_colored_cloud;
 
+    
     
     // Read in the cloud data
     reader.read ("test_pcd.pcd", *cloud);
     std::cout << "PointCloud has: " << cloud->points.size () << " data points." << std::endl;
 
-    // ########## FILTERING ##########
-    // remove lateral points outside the vineyard row
-    pass.setInputCloud (cloud);
-    pass.setFilterFieldName ("y");
-    pass.setFilterLimits (-7.0, 2.0);
-    pass.filter (*indices);
-    pass.setIndices (indices);
 
-    // remove low intensity points
-    pass.setFilterFieldName ("intensity");
-    pass.setFilterLimits (FLT_MIN, FLT_MAX); // now is deactivated
-    pass.setNegative (false);
-    pass.filter (*cloud_filtered);
+
+    // ########## AFFINE TRANSFORMATION ########## 
+    transformed_cloud = transform (cloud);
+
+    std::cout << "PointCloud after transformation has: " << transformed_cloud->points.size () << " data points." << std::endl;
+    writer.write ("transformed_cloud.pcd", *transformed_cloud, true); // the boolean flag is for binary (true) or ASCII (false) file format
+        
+        
+        
+    // ########## VISUALIZATION ########## 
+    //visualize (cloud, transformed_cloud); // Display the visualiser until 'q' key is pressed
+        
+        
+
+    // ########## FILTERING ##########
+    cloud_filtered = filter(transformed_cloud);
     
-    // Create the outlier filtering object
-    pcl::StatisticalOutlierRemoval<PointT> sor;
-    sor.setInputCloud (cloud_filtered);
-    sor.setMeanK (50);
-    sor.setStddevMulThresh (1.0);
-    sor.filter (*cloud_filtered);
-    
-    writer.write ("cloud_filtered.pcd", *cloud_filtered, true); // the boolean flag is for binary (true) or ASCII (false) file format
     std::cout << "PointCloud after filtering has: " << cloud_filtered->points.size () << " data points." << std::endl;
+    writer.write ("cloud_filtered.pcd", *cloud_filtered, false); // the boolean flag is for binary (true) or ASCII (false) file format
+    
+    
     
     // ########## GROUND REMOVAL ##########
-    // Estimate point normals
-    ne.setSearchMethod (tree);
-    ne.setInputCloud (cloud_filtered);
-    ne.setKSearch (50);
-    ne.compute (*cloud_normals);
-    
-    // Create the segmentation object for the planar model and set all the parameters
-    seg.setOptimizeCoefficients (true);
-    seg.setModelType (pcl::SACMODEL_NORMAL_PLANE);
-    seg.setNormalDistanceWeight (0.1);
-    seg.setMethodType (pcl::SAC_RANSAC);
-    seg.setMaxIterations (100);
-    seg.setDistanceThreshold (0.17);
-    seg.setInputCloud (cloud_filtered);
-    seg.setInputNormals (cloud_normals);
-    // Obtain the plane inliers and coefficients
-    seg.segment (*inliers_plane, *coefficients_plane);
-    if (inliers_plane->indices.size () == 0)
-    { 
-        PCL_ERROR ("Could not estimate a planar model for the given dataset.");
-        return (-1);
-    }
-    std::cout << "Plane coefficients: " << *coefficients_plane << std::endl;
-
-     // Extract the planar inliers from the input cloud
-    extract.setInputCloud (cloud_filtered);
-    extract.setIndices (inliers_plane);
-    extract.setNegative (false);
-    // Write the planar inliers to disk
-    pcl::PointCloud<PointT>::Ptr cloud_plane (new pcl::PointCloud<PointT> ());
-    extract.filter (*cloud_plane);
-    
-    std::cout << "PointCloud representing the planar component has: " << cloud_plane->points.size () << " data points." << std::endl;
-    writer.write ("cloud_plane.pcd", *cloud_plane, false);
-    
-    // Remove the planar inliers, extract the rest
-    extract.setNegative (true);
-    extract.filter (*cloud_filtered2);
-    /*
-    extract_normals.setNegative (true);
-    extract_normals.setInputCloud (cloud_normals);
-    extract_normals.setIndices (inliers_plane);
-    extract_normals.filter (*cloud_normals2);
-    */
+    cloud_filtered2 = remove_ground(cloud_filtered);
+    if(cloud_filtered2->empty())
+        return(-1);
     
     std::cout << "PointCloud after ground removal has: " << cloud_filtered2->points.size () << " data points." << std::endl;
     writer.write ("cloud_filtered2.pcd", *cloud_filtered2, false);
     
+    
+    
+    // ########## CENTRAL LIDAR TRACE REMOVAL ##########
+    /*cloud_filtered3 = remove_central_lidar_trace (cloud_filtered2);
+    if(cloud_filtered3->empty())
+        return(-1);
+    
+    std::cout << "PointCloud after lidar trace removal has: " << cloud_filtered3->points.size () << " data points." << std::endl;
+    writer.write ("cloud_filtered3.pcd", *cloud_filtered3, false);
+    */
+    
+    
+    
+    final_cloud = cloud_filtered2;
+    
+    
+    
     // ########## Z FILTERING: TRUNKS ##########
-    // remove ground points and points above the plants
-    pass = new pcl::PassThrough<PointT> (false);
-    pass.setInputCloud (cloud_filtered2);
-    //pass.setIndices (cloud_filtered2->getIndices());
-    pass.setFilterFieldName ("z");
-    pass.setFilterLimits (-0.7, -0.17);
-    pass.setNegative (false);
-    pass.filter (*trunks_filtered);
+    trunks_filtered = filter_z (final_cloud);
     
     std::cout << "PointCloud after Z filtering has: " << trunks_filtered->points.size () << " data points." << std::endl;
     writer.write ("trunks_filtered.pcd", *trunks_filtered, true); // the boolean flag is for binary (true) or ASCII (false) file format
     
+    
+    
     // ########## TRUNKS CLUSTERING ##########
-    // Creating the KdTree object for the search method of the extraction
-    tree->setInputCloud (trunks_filtered);
-
-    // Euclidean Cluster Extraction
-    std::vector<pcl::PointIndices> cluster_indices;
-    pcl::EuclideanClusterExtraction<PointT> ec;
-    ec.setClusterTolerance (0.05); // 2cm
-    ec.setMinClusterSize (100);
-    ec.setMaxClusterSize (10000);
-    ec.setSearchMethod (tree);
-    ec.setInputCloud (trunks_filtered);
-    ec.extract (cluster_indices);
-
-    std::vector <pcl::PointIndices> clusters_ = cluster_indices;
-    pcl::PointCloud<PointT>::Ptr input_ = trunks_filtered;
-    std::size_t num_clusters = cluster_indices.size();
-    std::vector< pcl::Kmeans::Point > centroids(num_clusters);
-    if (!clusters_.empty ())
-    {
-        colored_cloud = (new pcl::PointCloud<pcl::PointXYZRGB>)->makeShared ();
-
-        srand (static_cast<unsigned int> (time (0)));
-        std::vector<unsigned char> colors;
-        for (size_t i_segment = 0; i_segment < num_clusters; i_segment++)
-        {
-            colors.push_back (static_cast<unsigned char> (rand () % 256));
-            colors.push_back (static_cast<unsigned char> (rand () % 256));
-            colors.push_back (static_cast<unsigned char> (rand () % 256));
-        }
-        
-        colored_cloud->width = input_->width;
-        colored_cloud->height = input_->height;
-        colored_cloud->is_dense = input_->is_dense;
-        for (size_t i_point = 0; i_point < input_->points.size (); i_point++)
-        {
-            pcl::PointXYZRGB point;
-            point.x = *(input_->points[i_point].data);
-            point.y = *(input_->points[i_point].data + 1);
-            point.z = *(input_->points[i_point].data + 2);
-            point.r = 255;
-            point.g = 0;
-            point.b = 0;
-            colored_cloud->points.push_back (point);
-        }
-        
-        std::vector< pcl::PointIndices >::iterator i_segment;
-        int next_color = 0;
-        for (i_segment = clusters_.begin (); i_segment != clusters_.end (); i_segment++)
-        {
-            std::vector<int>::iterator i_point;
-            for (i_point = i_segment->indices.begin (); i_point != i_segment->indices.end (); i_point++)
-            {
-                int index;
-                index = *i_point;
-                colored_cloud->points[index].r = colors[3 * next_color];
-                colored_cloud->points[index].g = colors[3 * next_color + 1];
-                colored_cloud->points[index].b = colors[3 * next_color + 2];
-            }
-            
-            
-            // centroid computation for kmeans clustering TODO:put this code in an independent cycle!
-            Eigen::Vector4f centroid;
-            pcl::compute3DCentroid (*trunks_filtered, i_segment->indices, centroid);
-            std::vector<float> & centroid_vector = centroids[next_color];
-            for (int i = 0; i < 3; i++) {
-                centroid_vector.push_back (centroid[i]);
-            }  
-            
-             // DEBUG
-            /*std::cout << next_color << "_cent output: x: " << centroids[next_color][0] << " ,";
-            std::cout << "y: " << centroids[next_color][1] << " ,";
-            std::cout << "z: " << centroids[next_color][2] << std::endl;
-            */
-                  
-            
-            next_color++;       
-        }
-    }
-
-    std::cout << "PointCloud representing the clusters: " << colored_cloud->points.size () << " data points." << std::endl;
-    writer.write ("colored_cloud.pcd", *colored_cloud, false); 
+    trunks_clusters_indices = cluster_trunks (trunks_filtered);
+    
+    // color cloud with different colors for each cluster
+    std::size_t num_clusters = trunks_clusters_indices.size();
+    trunks_colored = getColoredCloud (*trunks_filtered, trunks_clusters_indices, num_clusters);
+    
+    std::cout << "PointCloud after Euclidean Cluster Extraction has: " << trunks_colored->points.size () << " data points." << std::endl;
+    writer.write ("trunks_colored.pcd", *trunks_colored, true); // the boolean flag is for binary (true) or ASCII (false) file format
+    
+    
     
     // ########## KMEANS CLUSTERING ##########
+    std::vector< pcl::Kmeans::Point > centroids(num_clusters);
+    centroids = kmeans_centroids_computation(trunks_filtered, trunks_clusters_indices);
+    
+    std::vector<pcl::PointIndices> plants_clusters_indices (num_clusters);
+    plants_clusters_indices = cluster_kmeans(final_cloud, centroids);
+    final_colored_cloud = getColoredCloud(*final_cloud, plants_clusters_indices, num_clusters);
+    
+    std::cout << "PointCloud representing the kmeans plants clusters: " << final_colored_cloud->points.size () << " data points." << std::endl;
+    writer.write ("final_colored_cloud.pcd", *final_colored_cloud, false);
+    
+   
+   
+    return (0);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+// ########## VISUALIZATION ########## 
+void visualize (pcl::PointCloud<PointT>::Ptr source_cloud, pcl::PointCloud<PointT>::Ptr transformed_cloud)
+{  
+    // Visualization
+    printf(  "\nPoint cloud colors :  white  = original point cloud\n"
+        "                        red  = transformed point cloud\n");
+    pcl::visualization::PCLVisualizer viewer ("Point cloud rotation");
+    
+    // Define R,G,B colors for the point cloud
+    pcl::visualization::PointCloudColorHandlerCustom<PointT> source_cloud_color_handler (source_cloud, 255, 255, 255);
+    // We add the point cloud to the viewer and pass the color handler
+    viewer.addPointCloud (source_cloud, source_cloud_color_handler, "original_cloud");
+
+    pcl::visualization::PointCloudColorHandlerCustom<PointT> transformed_cloud_color_handler (transformed_cloud, 230, 20, 20); // Red
+    viewer.addPointCloud (transformed_cloud, transformed_cloud_color_handler, "transformed_cloud");
+    
+    viewer.addCoordinateSystem (1.0, "cloud", 0);
+    viewer.setBackgroundColor(0.05, 0.05, 0.05, 0); // Setting background to a dark grey
+    viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "original_cloud");
+    viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "transformed_cloud");
+    //viewer.setPosition(800, 400); // Setting visualiser window position
+
+    while (!viewer.wasStopped ()) { // Display the visualiser until 'q' key is pressed
+        viewer.spinOnce ();
+    }
+}
+
+
+
+
+// ########## AFFINE TRANSFORMATION ########## 
+pcl::PointCloud<PointT>::Ptr transform (pcl::PointCloud<PointT>::Ptr input) 
+{
+    Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+    pcl::PointCloud<PointT>::Ptr output (new pcl::PointCloud<PointT>);
+
+    
+    float theta = -M_PI/15; // The angle of rotation in radians
+
+    // Define a translation of 2.5 meters on the x axis.
+    transform.translation() << 0.0, -1.5, 0.0;
+
+    // The same rotation matrix as before; theta radians around Z axis
+    transform.rotate (Eigen::AngleAxisf (theta, Eigen::Vector3f::UnitZ()));
+
+    // Print the transformation
+    printf ("\nTransformation matrix using an Affine3f:\n");
+    std::cout << transform.matrix() << std::endl;
+
+    // Executing the transformation
+    pcl::transformPointCloud (*input, *output, transform);
+    
+    
+    return(output);    
+}
+
+
+// ########## KMEANS CLUSTERING COMPUTATION ##########
+std::vector<pcl::PointIndices> cluster_kmeans (pcl::PointCloud<PointT>::Ptr input, std::vector<pcl::Kmeans::Point> &centroids)
+{
+     std::size_t num_clusters = centroids.size();
     // Kmeans computation
-    pcl::Kmeans kmeans(static_cast<int> (cloud_filtered2->points.size()), 3);
+    pcl::Kmeans kmeans(static_cast<int> (input->points.size()), 3); 
+    
+    
     kmeans.setClusterSize(num_clusters);
     kmeans.setClusterCentroids(centroids);
-    std::vector< pcl::Kmeans::Point > data(cloud_filtered2->points.size());
-    for(std::size_t i=0; i<cloud_filtered2->points.size(); ++i) 
+    std::vector<pcl::Kmeans::Point> data(input->points.size());
+    for(std::size_t i=0; i<input->points.size(); ++i) 
     {
-        data[i].push_back(cloud_filtered2->points[i].x);
-        data[i].push_back(cloud_filtered2->points[i].y);
-        data[i].push_back(cloud_filtered2->points[i].z);
+        data[i].push_back(input->points[i].x);
+        data[i].push_back(input->points[i].y);
+        data[i].push_back(input->points[i].z);
     }
     kmeans.setInputData (data);
+    
     kmeans.kMeans();
+    
     pcl::Kmeans::Centroids ret_centroids = kmeans.get_centroids(); 
        
      // DEBUG
@@ -242,27 +231,317 @@ int main (int argc, char** argv)
     pcl::Kmeans::ClustersToPoints clusters_to_points;
     clusters_to_points = kmeans.get_clusters_to_points();
     
+    std::vector<pcl::PointIndices> output_clusters_indices (num_clusters);
     for (size_t i = 0; i < num_clusters; i++)
     {
-        
-        std::set<pcl::Kmeans::PointId>::iterator it = clusters_to_points[i].begin();
- 
-        // Iterate till the end of set
-        while (it != clusters_to_points[i].end())
+        if(!clusters_to_points[i].empty())
         {
-            // Print the element
-            std::cout << (*it) << " , ";
-            //Increment the iterator
-            it++;
+            std::set<pcl::Kmeans::PointId>::iterator it = clusters_to_points[i].begin();
+ 
+            // Iterate till the end of set
+            while (it != clusters_to_points[i].end())
+            {
+                output_clusters_indices[i].indices.push_back(static_cast<int>(*it));
+                it++;
+            }
         }
     }  
-    
-    
-   
-    return (0);
+        
+    return(output_clusters_indices);
 }
+
+
+
+// ########## KMEANS CENTROIDS COMPUTATION ##########
+std::vector<pcl::Kmeans::Point> kmeans_centroids_computation(pcl::PointCloud<PointT>::Ptr input, std::vector<pcl::PointIndices> &input_clusters_indices)
+{
+    // centroid computation for kmeans clustering 
+    std::size_t num_clusters = input_clusters_indices.size();
+    std::vector< pcl::Kmeans::Point > centroids(num_clusters);
+    std::vector< pcl::PointIndices >::iterator i_segment;
+    int i = 0;
+    for (i_segment = input_clusters_indices.begin (); i_segment != input_clusters_indices.end (); i_segment++)
+    {
+        Eigen::Vector4f centroid;
+        pcl::compute3DCentroid (*input, i_segment->indices, centroid);
+        centroids[i].push_back (centroid[0]);
+        centroids[i].push_back (centroid[1]);
+        centroids[i].push_back (centroid[2]);
+            
+        // DEBUG
+        /*std::cout << next_color << "_cent output: x: " << centroids[next_color][0] << " ,";
+        std::cout << "y: " << centroids[next_color][1] << " ,";
+        std::cout << "z: " << centroids[next_color][2] << std::endl;
+        */
+        
+        i++;
+    }
+    
+    return(centroids);
+}
+
+
+
+
+
+// ########## TRUNKS CLUSTERING ##########
+std::vector<pcl::PointIndices> cluster_trunks (pcl::PointCloud<PointT>::Ptr input)
+{
+    pcl::search::KdTree<PointT>::Ptr tree (new pcl::search::KdTree<PointT> ());     // Creating the KdTree object for the search method of the extraction
+    std::vector<pcl::PointIndices> output;
+    pcl::EuclideanClusterExtraction<PointT> ec;
+
+
+
+    tree->setInputCloud (input);
+
+    // Euclidean Cluster Extraction
+    ec.setClusterTolerance (0.05); // 5cm
+    ec.setMinClusterSize (100);
+    ec.setMaxClusterSize (10000);
+    ec.setSearchMethod (tree);
+    ec.setInputCloud (input);
+    ec.extract (output);
+    
+    return(output);
+}
+
+
+
+// ########## Z FILTERING: TRUNKS ##########
+pcl::PointCloud<PointT>::Ptr filter_z (pcl::PointCloud<PointT>::Ptr input)
+{
+    pcl::PassThrough<PointT> pass;
+    pcl::PointCloud<PointT>::Ptr output (new pcl::PointCloud<PointT>);
+
+    
+    // remove ground points and points above the plants
+    pass.setInputCloud (input);
+    pass.setFilterFieldName ("z");
+    pass.setNegative (false);
+    pass.setFilterLimits (-0.7, -0.17);
+    pass.filter (*output);
+    
+    return(output);
+}
+
+
+// ########## CENTRAL LIDAR TRACE REMOVAL ##########
+pcl::PointCloud<PointT>::Ptr remove_central_lidar_trace (pcl::PointCloud<PointT>::Ptr input)
+{
+    pcl::NormalEstimation<PointT, pcl::Normal> ne;
+    pcl::search::KdTree<PointT>::Ptr tree (new pcl::search::KdTree<PointT> ());
+    pcl::SACSegmentationFromNormals<PointT, pcl::Normal> seg; 
+    pcl::PointCloud<pcl::Normal>::Ptr cloud_lidartrace_normals (new pcl::PointCloud<pcl::Normal>);
+    pcl::ModelCoefficients::Ptr coefficients_plane (new pcl::ModelCoefficients);
+    pcl::PointIndices::Ptr inliers_plane (new pcl::PointIndices);
+    pcl::PointCloud<PointT>::Ptr cloud_lidartrace (new pcl::PointCloud<PointT> ()), output (new pcl::PointCloud<PointT>);
+    pcl::PCDWriter writer;
+    pcl::ExtractIndices<PointT> extract;
+
+
+     
+    // Estimate point normals
+    ne.setSearchMethod (tree);
+    ne.setInputCloud (input);
+    ne.setKSearch (50);
+    ne.compute (*cloud_lidartrace_normals);
+    
+    // Create the segmentation object for   the planar model and set all the parameters
+    seg.setOptimizeCoefficients (true);
+    seg.setModelType (pcl::SACMODEL_NORMAL_PLANE);
+    seg.setNormalDistanceWeight (0.1);
+    seg.setMethodType (pcl::SAC_RANSAC);
+    seg.setMaxIterations (100);
+    seg.setDistanceThreshold (0.17);
+    seg.setInputCloud (input);
+    seg.setInputNormals (cloud_lidartrace_normals);
+    // Obtain the plane inliers and coefficients
+    seg.segment (*inliers_plane, *coefficients_plane);
+    if (inliers_plane->indices.size () == 0)
+    { 
+        PCL_ERROR ("Could not estimate a planar model for the given dataset.");
+        return(output);
+    }
+    std::cout << "Plane coefficients: " << *coefficients_plane << std::endl;
+
+     // Extract the planar inliers from the input cloud
+    extract.setInputCloud (input);
+    extract.setIndices (inliers_plane);
+    extract.setNegative (false);
+    // Write the planar inliers to disk
+    extract.filter (*cloud_lidartrace);
+    
+    std::cout << "PointCloud representing the planar lidar trace component has: " << cloud_lidartrace->points.size () << " data points." << std::endl;
+    writer.write ("cloud_lidartrace.pcd", *cloud_lidartrace, false);
+    
+    // Remove the planar inliers, extract the rest
+    extract.setNegative (true);
+    extract.filter (*output);
+    
+    return(output);
+}
+
+
+
+
+// ########## GROUND REMOVAL ##########
+pcl::PointCloud<PointT>::Ptr remove_ground (pcl::PointCloud<PointT>::Ptr input)
+{
+    pcl::NormalEstimation<PointT, pcl::Normal> ne;
+    pcl::search::KdTree<PointT>::Ptr tree (new pcl::search::KdTree<PointT> ());
+    pcl::PointCloud<pcl::Normal>::Ptr cloud_ground_normals (new pcl::PointCloud<pcl::Normal>);
+    pcl::SACSegmentationFromNormals<PointT, pcl::Normal> seg; 
+    pcl::ModelCoefficients::Ptr coefficients_plane (new pcl::ModelCoefficients);
+    pcl::PointIndices::Ptr inliers_plane (new pcl::PointIndices);
+    pcl::ExtractIndices<PointT> extract;
+    pcl::PointCloud<PointT>::Ptr cloud_ground (new pcl::PointCloud<PointT> ()), output (new pcl::PointCloud<PointT>);
+    pcl::PCDWriter writer;
+
+    
+    // Estimate point normals
+    ne.setSearchMethod (tree);
+    ne.setInputCloud (input);
+    ne.setKSearch (50);
+    ne.compute (*cloud_ground_normals);
+    
+    // Create the segmentation object for the planar model and set all the parameters
+    seg.setOptimizeCoefficients (true);
+    seg.setModelType (pcl::SACMODEL_NORMAL_PLANE);
+    seg.setNormalDistanceWeight (0.1);
+    seg.setMethodType (pcl::SAC_RANSAC);
+    seg.setMaxIterations (100);
+    seg.setDistanceThreshold (0.17);
+    seg.setInputCloud (input);
+    seg.setInputNormals (cloud_ground_normals);
+    // Obtain the plane inliers and coefficients
+    seg.segment (*inliers_plane, *coefficients_plane);
+    if (inliers_plane->indices.size () == 0)
+    { 
+        PCL_ERROR ("Could not estimate a planar model for the given dataset.");
+        return(output);
+    }
+    std::cout << "Plane coefficients: " << *coefficients_plane << std::endl;
+
+     // Extract the planar inliers from the input cloud
+    extract.setInputCloud (input);
+    extract.setIndices (inliers_plane);
+    extract.setNegative (false);
+    // Write the planar inliers to disk
+    extract.filter (*cloud_ground);
+    
+    std::cout << "PointCloud representing the planar ground component has: " << cloud_ground->points.size () << " data points." << std::endl;
+    writer.write ("cloud_ground.pcd", *cloud_ground, false);
+    
+    // Remove the planar inliers, extract the rest
+    extract.setNegative (true);
+    extract.filter (*output);
+    
+    return(output);    
+}
+
+
+
+// ########## FILTERING ##########
+pcl::PointCloud<PointT>::Ptr filter (pcl::PointCloud<PointT>::Ptr input)
+{
+    pcl::PassThrough<PointT> pass;
+    pcl::IndicesPtr indices (new std::vector<int>);
+    pcl::PointCloud<PointT>::Ptr output (new pcl::PointCloud<PointT>);
+    
+    // remove the initial e final points along x axis
+    pass.setInputCloud (input);
+    pass.setFilterFieldName ("x");
+    pass.setNegative (false);
+    pass.setFilterLimits (-30.0, -1.0);
+    pass.filter (*indices);
+    pass.setIndices (indices);
+    
+    // remove lateral points outside the vineyard row
+    pass.setFilterFieldName ("y");
+    pass.setFilterLimits (-4.0, 2.0);
+    pass.filter (*indices);
+    pass.setIndices (indices);
+    
+    // remove the central points of the lidar trace
+    pass.setFilterFieldName ("y");
+    pass.setNegative (true);
+    pass.setFilterLimits (-1.5, 0.0);
+    pass.filter (*indices);
+    pass.setIndices (indices);
+
+    // remove low intensity points
+    pass.setFilterFieldName ("intensity");
+    pass.setNegative (false);
+    pass.setFilterLimits (600, FLT_MAX); // now is deactivated
+    pass.filter (*indices);
+    //pass.setIndices (indices);
+    
+    
+    // Create the outlier filtering object
+    pcl::StatisticalOutlierRemoval<PointT> sor;
+    sor.setInputCloud (input);
+    sor.setIndices (indices);
+    sor.setMeanK (50);
+    sor.setStddevMulThresh (1.0);
+    sor.filter (*output);
+    
+    return(output);
+}
+
+
+
 
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr getColoredCloud (pcl::PointCloud<PointT>& input, std::vector <pcl::PointIndices>& clusters, std::size_t num_clusters)
 {
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cloud;
+    
+    if (!clusters.empty ())
+    {
+        colored_cloud = (new pcl::PointCloud<pcl::PointXYZRGB>)->makeShared ();
+
+        srand (static_cast<unsigned int> (time (0)));
+        std::vector<unsigned char> colors;
+        for (size_t i_segment = 0; i_segment < num_clusters; i_segment++)
+        {
+            colors.push_back (static_cast<unsigned char> (rand () % 256));
+            colors.push_back (static_cast<unsigned char> (rand () % 256));
+            colors.push_back (static_cast<unsigned char> (rand () % 256));
+        }
+        
+        colored_cloud->width = input.width;
+        colored_cloud->height = input.height;
+        colored_cloud->is_dense = input.is_dense;
+        for (size_t i_point = 0; i_point < input.points.size (); i_point++)
+        {
+            pcl::PointXYZRGB point;
+            point.x = *(input.points[i_point].data);
+            point.y = *(input.points[i_point].data + 1);
+            point.z = *(input.points[i_point].data + 2);
+            point.r = 255;
+            point.g = 0;
+            point.b = 0;
+            colored_cloud->points.push_back (point);
+        }
+        
+        std::vector< pcl::PointIndices >::iterator i_segment;
+        int next_color = 0;
+        for (i_segment = clusters.begin (); i_segment != clusters.end (); i_segment++)
+        {
+            std::vector<int>::iterator i_point;
+            for (i_point = i_segment->indices.begin (); i_point != i_segment->indices.end (); i_point++)
+            {
+                int index;
+                index = *i_point;
+                colored_cloud->points[index].r = colors[3 * next_color];
+                colored_cloud->points[index].g = colors[3 * next_color + 1];
+                colored_cloud->points[index].b = colors[3 * next_color + 2];
+            }                  
+            
+            next_color++;       
+        }
+    }
+
+    return (colored_cloud);
     
 }
