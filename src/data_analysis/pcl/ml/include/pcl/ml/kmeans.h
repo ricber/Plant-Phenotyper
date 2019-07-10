@@ -111,16 +111,7 @@ namespace pcl
       {
         cluster_field_name_ = field_name;
       };
-*/    
-
-      void
-      setClusterCentroids (Centroids &centroids)
-      { 
-          if (num_points_ < centroids.size())
-            std::cout << "More centroids than data points" << std::endl;
-          
-          centroids_ = centroids;          
-      };
+*/      
 
       //void
       //cluster (std::vector<PointIndices> &clusters);
@@ -158,7 +149,7 @@ namespace pcl
       {
         float total = 0.0;
         float diff;
-    
+
         auto cpy=y.cbegin();
         for(auto cpx = x.cbegin(), cpx_end = x.cend(); cpx != cpx_end; ++cpx, ++cpy){
           diff = *cpx - *cpy;
@@ -168,8 +159,18 @@ namespace pcl
       }
 
 
-      Centroids get_centroids (){return centroids_;}
+    void
+    setClusterCentroids (Centroids &centroids)
+    { 
+        if (num_points_ < centroids.size())
+            std::cout << "More centroids than data points" << std::endl;
+        centroids_ = centroids;          
+    };
+      
 
+    Centroids get_centroids (){return centroids_;}
+
+    ClustersToPoints get_clusters_to_points() {return clusters_to_points_;}
 
     protected:
       // Members derived from the base class

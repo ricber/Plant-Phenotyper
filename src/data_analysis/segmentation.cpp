@@ -68,7 +68,7 @@ int main (int argc, char** argv)
     cloud_filtered = filter(transformed_cloud);
     
     std::cout << "PointCloud after filtering has: " << cloud_filtered->points.size () << " data points." << std::endl;
-    writer.write ("cloud_filtered.pcd", *cloud_filtered, false); // the boolean flag is for binary (true) or ASCII (false) file format
+    writer.write ("cloud_filtered.pcd", *cloud_filtered, true); // the boolean flag is for binary (true) or ASCII (false) file format
     
     
     
@@ -78,18 +78,7 @@ int main (int argc, char** argv)
         return(-1);
     
     std::cout << "PointCloud after ground removal has: " << cloud_filtered2->points.size () << " data points." << std::endl;
-    writer.write ("cloud_filtered2.pcd", *cloud_filtered2, false);
-    
-    
-    
-    // ########## CENTRAL LIDAR TRACE REMOVAL ##########
-    /*cloud_filtered3 = remove_central_lidar_trace (cloud_filtered2);
-    if(cloud_filtered3->empty())
-        return(-1);
-    
-    std::cout << "PointCloud after lidar trace removal has: " << cloud_filtered3->points.size () << " data points." << std::endl;
-    writer.write ("cloud_filtered3.pcd", *cloud_filtered3, false);
-    */
+    writer.write ("cloud_filtered2.pcd", *cloud_filtered2, true);
     
     
     
@@ -126,12 +115,13 @@ int main (int argc, char** argv)
     final_colored_cloud = getColoredCloud(*final_cloud, plants_clusters_indices, num_clusters);
     
     std::cout << "PointCloud representing the kmeans plants clusters: " << final_colored_cloud->points.size () << " data points." << std::endl;
-    writer.write ("final_colored_cloud.pcd", *final_colored_cloud, false);
+    writer.write ("final_colored_cloud.pcd", *final_colored_cloud, true); // the boolean flag is for binary (true) or ASCII (false) file format
     
    
    
     return (0);
 }
+
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -164,7 +154,6 @@ void visualize (pcl::PointCloud<PointT>::Ptr source_cloud, pcl::PointCloud<Point
         viewer.spinOnce ();
     }
 }
-
 
 
 
@@ -282,8 +271,6 @@ std::vector<pcl::Kmeans::Point> kmeans_centroids_computation(pcl::PointCloud<Poi
 
 
 
-
-
 // ########## TRUNKS CLUSTERING ##########
 std::vector<pcl::PointIndices> cluster_trunks (pcl::PointCloud<PointT>::Ptr input)
 {
@@ -324,64 +311,6 @@ pcl::PointCloud<PointT>::Ptr filter_z (pcl::PointCloud<PointT>::Ptr input)
     
     return(output);
 }
-
-
-// ########## CENTRAL LIDAR TRACE REMOVAL ##########
-pcl::PointCloud<PointT>::Ptr remove_central_lidar_trace (pcl::PointCloud<PointT>::Ptr input)
-{
-    pcl::NormalEstimation<PointT, pcl::Normal> ne;
-    pcl::search::KdTree<PointT>::Ptr tree (new pcl::search::KdTree<PointT> ());
-    pcl::SACSegmentationFromNormals<PointT, pcl::Normal> seg; 
-    pcl::PointCloud<pcl::Normal>::Ptr cloud_lidartrace_normals (new pcl::PointCloud<pcl::Normal>);
-    pcl::ModelCoefficients::Ptr coefficients_plane (new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliers_plane (new pcl::PointIndices);
-    pcl::PointCloud<PointT>::Ptr cloud_lidartrace (new pcl::PointCloud<PointT> ()), output (new pcl::PointCloud<PointT>);
-    pcl::PCDWriter writer;
-    pcl::ExtractIndices<PointT> extract;
-
-
-     
-    // Estimate point normals
-    ne.setSearchMethod (tree);
-    ne.setInputCloud (input);
-    ne.setKSearch (50);
-    ne.compute (*cloud_lidartrace_normals);
-    
-    // Create the segmentation object for   the planar model and set all the parameters
-    seg.setOptimizeCoefficients (true);
-    seg.setModelType (pcl::SACMODEL_NORMAL_PLANE);
-    seg.setNormalDistanceWeight (0.1);
-    seg.setMethodType (pcl::SAC_RANSAC);
-    seg.setMaxIterations (100);
-    seg.setDistanceThreshold (0.17);
-    seg.setInputCloud (input);
-    seg.setInputNormals (cloud_lidartrace_normals);
-    // Obtain the plane inliers and coefficients
-    seg.segment (*inliers_plane, *coefficients_plane);
-    if (inliers_plane->indices.size () == 0)
-    { 
-        PCL_ERROR ("Could not estimate a planar model for the given dataset.");
-        return(output);
-    }
-    std::cout << "Plane coefficients: " << *coefficients_plane << std::endl;
-
-     // Extract the planar inliers from the input cloud
-    extract.setInputCloud (input);
-    extract.setIndices (inliers_plane);
-    extract.setNegative (false);
-    // Write the planar inliers to disk
-    extract.filter (*cloud_lidartrace);
-    
-    std::cout << "PointCloud representing the planar lidar trace component has: " << cloud_lidartrace->points.size () << " data points." << std::endl;
-    writer.write ("cloud_lidartrace.pcd", *cloud_lidartrace, false);
-    
-    // Remove the planar inliers, extract the rest
-    extract.setNegative (true);
-    extract.filter (*output);
-    
-    return(output);
-}
-
 
 
 
@@ -474,21 +403,20 @@ pcl::PointCloud<PointT>::Ptr filter (pcl::PointCloud<PointT>::Ptr input)
     pass.setFilterFieldName ("intensity");
     pass.setNegative (false);
     pass.setFilterLimits (600, FLT_MAX); // now is deactivated
-    pass.filter (*indices);
+    pass.filter (*output);
     //pass.setIndices (indices);
     
     
     // Create the outlier filtering object
-    pcl::StatisticalOutlierRemoval<PointT> sor;
+    /*pcl::StatisticalOutlierRemoval<PointT> sor;
     sor.setInputCloud (input);
     sor.setIndices (indices);
     sor.setMeanK (50);
     sor.setStddevMulThresh (1.0);
-    sor.filter (*output);
+    sor.filter (*output);*/
     
     return(output);
 }
-
 
 
 
@@ -543,5 +471,4 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr getColoredCloud (pcl::PointCloud<PointT>&
     }
 
     return (colored_cloud);
-    
 }

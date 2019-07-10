@@ -139,7 +139,7 @@ pcl::Kmeans::kMeans ()
 
     not_converged = false;
 
-    computeCentroids();
+    //computeCentroids(); // MOVED AFTER FOR CYCLE
 
     // for each point
     for (PointId pid=0; pid<num_points_; pid++)
@@ -174,6 +174,9 @@ pcl::Kmeans::kMeans ()
         clusters_to_points_[to_cluster].insert(pid);
       }
     }
+    
+    computeCentroids();
+    
   } // end while
 }
 
