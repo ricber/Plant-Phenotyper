@@ -15,6 +15,7 @@
 #include <pcl/ml/kmeans.h>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/common/transforms.h>
+#include <pcl/common/common.h>
 
 typedef pcl::PointXYZI PointT;
 
@@ -28,6 +29,7 @@ std::vector<pcl::Kmeans::Point> kmeans_centroids_computation(pcl::PointCloud<Poi
 std::vector<pcl::PointIndices> cluster_kmeans (pcl::PointCloud<PointT>::Ptr input, std::vector<pcl::Kmeans::Point> &centroids);
 pcl::PointCloud<PointT>::Ptr transform (pcl::PointCloud<PointT>::Ptr input);
 void visualize (pcl::PointCloud<PointT>::Ptr source_cloud, pcl::PointCloud<PointT>::Ptr transformed_cloud);
+void boundingBox(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudSegmented, pcl::visualization::PCLVisualizer *visu, const std::string& cloud_name, const std::string& cube_name);
 
 
 
@@ -117,7 +119,51 @@ int main (int argc, char** argv)
     std::cout << "PointCloud representing the kmeans plants clusters: " << final_colored_cloud->points.size () << " data points." << std::endl;
     writer.write ("final_colored_cloud.pcd", *final_colored_cloud, true); // the boolean flag is for binary (true) or ASCII (false) file format
     
-   
+    
+    
+    // ########## BOUNDING BOXES ##########
+    std::vector<pcl::PointIndices>::iterator it_1 = plants_clusters_indices.begin(); // iterate over clusters
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGB>); // cloud of a single cluster
+    pcl::ExtractIndices<pcl::PointXYZRGB> extract; // object to extract cluster points
+    pcl::visualization::PCLVisualizer *visu;  // visualization object
+    
+    extract.setInputCloud (final_colored_cloud);
+    visu = new pcl::visualization::PCLVisualizer (argc, argv, "Bound boxes Viewer");  
+    
+    std::vector<std::string> cloud_names(num_clusters); 
+    for (int i=0; i<num_clusters; i++)     
+       cloud_names[i] = "cloud"+ std::to_string(i);
+       
+    std::vector<std::string> cube_names(num_clusters); 
+    for (int i=0; i<num_clusters; i++)     
+       cube_names[i] = "cube"+ std::to_string(i);
+    
+    int counter=0;
+    // Iterate till the end of the vector of clusters
+    while (it_1 != plants_clusters_indices.end())
+    {
+        pcl::PointIndices::Ptr cluster_indices (new pcl::PointIndices ()); // point indices of a single cluster
+        std::vector< int >::iterator it_2 = it_1->indices.begin();
+        while (it_2 != it_1->indices.end())
+        {
+            cluster_indices->indices.push_back(*it_2);
+            it_2++;        
+        }
+        
+        extract.setIndices (cluster_indices);
+        extract.setNegative (false);
+        extract.filter (*cloud_cluster);
+        boundingBox(cloud_cluster, visu, cloud_names[counter], cube_names[counter]);       
+        it_1++;
+        counter++;
+    }
+    
+    visu->setRepresentationToWireframeForAllActors(); 
+    
+    while (!visu->wasStopped ()) { // Display the visualiser until 'q' key is pressed
+        visu->spinOnce ();
+    }
+    
    
     return (0);
 }
@@ -128,11 +174,45 @@ int main (int argc, char** argv)
 
 
 
+void boundingBox(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudSegmented, pcl::visualization::PCLVisualizer *visu, const std::string& cloud_name, const std::string& cube_name)
+{
+    // Compute principal directions
+    Eigen::Vector4f pcaCentroid;
+    pcl::compute3DCentroid(*cloudSegmented, pcaCentroid);
+    Eigen::Matrix3f covariance;
+    pcl::computeCovarianceMatrixNormalized(*cloudSegmented, pcaCentroid, covariance);
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigen_solver(covariance, Eigen::ComputeEigenvectors);
+    Eigen::Matrix3f eigenVectorsPCA = eigen_solver.eigenvectors();
+    eigenVectorsPCA.col(2) = eigenVectorsPCA.col(0).cross(eigenVectorsPCA.col(1));  // This line is necessary for proper orientation in some cases. The numbers come out the same without it, but
+                                                                                    //   the signs are different and the box doesn't get correctly oriented in some cases.
+    // Transform the original cloud to the origin where the principal components correspond to the axes.
+    Eigen::Matrix4f projectionTransform(Eigen::Matrix4f::Identity());
+    projectionTransform.block<3,3>(0,0) = eigenVectorsPCA.transpose();
+    projectionTransform.block<3,1>(0,3) = -1.f * (projectionTransform.block<3,3>(0,0) * pcaCentroid.head<3>());
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudPointsProjected (new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::transformPointCloud(*cloudSegmented, *cloudPointsProjected, projectionTransform);
+    // Get the minimum and maximum points of the transformed cloud.
+    pcl::PointXYZRGB minPoint, maxPoint;
+    pcl::getMinMax3D(*cloudPointsProjected, minPoint, maxPoint);
+    const Eigen::Vector3f meanDiagonal = 0.5f*(maxPoint.getVector3fMap() + minPoint.getVector3fMap());
+    
+    // Final transform
+    const Eigen::Quaternionf bboxQuaternion(eigenVectorsPCA); //Quaternions are a way to do rotations https://www.youtube.com/watch?v=mHVwd8gYLnI
+    const Eigen::Vector3f bboxTransform = eigenVectorsPCA * meanDiagonal + pcaCentroid.head<3>();
+    
+    visu->addPointCloud(cloudSegmented, cloud_name);
+    visu->addCube(bboxTransform, bboxQuaternion, maxPoint.x - minPoint.x, maxPoint.y - minPoint.y, maxPoint.z - minPoint.z, cube_name);
+    //visu->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, cloud_name);
+    //visu->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, cube_name); 
+}
+
+
+
 // ########## VISUALIZATION ########## 
 void visualize (pcl::PointCloud<PointT>::Ptr source_cloud, pcl::PointCloud<PointT>::Ptr transformed_cloud)
 {  
     // Visualization
-    printf(  "\nPoint cloud colors :  white  = original point cloud\n"
+    printf( "\nPoint cloud colors :  white  = original point cloud\n"
         "                        red  = transformed point cloud\n");
     pcl::visualization::PCLVisualizer viewer ("Point cloud rotation");
     
@@ -182,6 +262,7 @@ pcl::PointCloud<PointT>::Ptr transform (pcl::PointCloud<PointT>::Ptr input)
     
     return(output);    
 }
+
 
 
 // ########## KMEANS CLUSTERING COMPUTATION ##########
@@ -283,8 +364,8 @@ std::vector<pcl::PointIndices> cluster_trunks (pcl::PointCloud<PointT>::Ptr inpu
     tree->setInputCloud (input);
 
     // Euclidean Cluster Extraction
-    ec.setClusterTolerance (0.05); // 5cm
-    ec.setMinClusterSize (100);
+    ec.setClusterTolerance (0.07); // 7cm
+    ec.setMinClusterSize (250);
     ec.setMaxClusterSize (10000);
     ec.setSearchMethod (tree);
     ec.setInputCloud (input);
@@ -402,18 +483,17 @@ pcl::PointCloud<PointT>::Ptr filter (pcl::PointCloud<PointT>::Ptr input)
     // remove low intensity points
     pass.setFilterFieldName ("intensity");
     pass.setNegative (false);
-    pass.setFilterLimits (600, FLT_MAX); // now is deactivated
-    pass.filter (*output);
+    pass.setFilterLimits (600, FLT_MAX);
+    pass.filter (*indices);
     //pass.setIndices (indices);
     
-    
     // Create the outlier filtering object
-    /*pcl::StatisticalOutlierRemoval<PointT> sor;
+    pcl::StatisticalOutlierRemoval<PointT> sor;
     sor.setInputCloud (input);
     sor.setIndices (indices);
-    sor.setMeanK (50);
+    sor.setMeanK (100);
     sor.setStddevMulThresh (1.0);
-    sor.filter (*output);*/
+    sor.filter (*output);
     
     return(output);
 }
