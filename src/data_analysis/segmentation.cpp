@@ -16,20 +16,23 @@
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/common/transforms.h>
 #include <pcl/common/common.h>
+#include <pcl/filters/project_inliers.h>
+#include <pcl/common/io.h>
 
 typedef pcl::PointXYZI PointT;
 
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr getColoredCloud (pcl::PointCloud<PointT>& input, std::vector <pcl::PointIndices>& clusters, std::size_t num_clusters);
 pcl::PointCloud<PointT>::Ptr filter (pcl::PointCloud<PointT>::Ptr input);
-pcl::PointCloud<PointT>::Ptr remove_ground (pcl::PointCloud<PointT>::Ptr input);
-pcl::PointCloud<PointT>::Ptr remove_central_lidar_trace (pcl::PointCloud<PointT>::Ptr input);
+void remove_ground (pcl::PointCloud<PointT>::Ptr input, pcl::PointCloud<PointT>::Ptr output, pcl::ModelCoefficients::Ptr coefficients_plane);
 pcl::PointCloud<PointT>::Ptr filter_z (pcl::PointCloud<PointT>::Ptr input);
 std::vector<pcl::PointIndices> cluster_trunks (pcl::PointCloud<PointT>::Ptr input);
 std::vector<pcl::Kmeans::Point> kmeans_centroids_computation(pcl::PointCloud<PointT>::Ptr input, std::vector<pcl::PointIndices> &input_clusters_indices);
 std::vector<pcl::PointIndices> cluster_kmeans (pcl::PointCloud<PointT>::Ptr input, std::vector<pcl::Kmeans::Point> &centroids);
 pcl::PointCloud<PointT>::Ptr transform (pcl::PointCloud<PointT>::Ptr input);
 void visualize (pcl::PointCloud<PointT>::Ptr source_cloud, pcl::PointCloud<PointT>::Ptr transformed_cloud);
-void boundingBox(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudSegmented, pcl::visualization::PCLVisualizer *visu, const std::string& cloud_name, const std::string& cube_name);
+void boundingBox(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudSegmented, pcl::visualization::PCLVisualizer *visu, int counter);
+pcl::PointCloud<PointT>::Ptr cloud_projection (pcl::PointCloud<PointT>::Ptr input, pcl::ModelCoefficients::Ptr coefficients);
+std::vector<pcl::PointIndices> cluster_radius_search (pcl::PointCloud<PointT>::Ptr cloud_projected, pcl::PointCloud<PointT>::Ptr centroids_projected);
 
 
 
@@ -39,11 +42,14 @@ int main (int argc, char** argv)
     pcl::PCDReader reader;
     pcl::PCDWriter writer;
     std::vector<pcl::PointIndices> trunks_clusters_indices;
+    pcl::ModelCoefficients::Ptr coefficients_plane (new pcl::ModelCoefficients);
+
     
     // Datasets
     pcl::PointCloud<PointT>::Ptr cloud (new pcl::PointCloud<PointT>);
-    pcl::PointCloud<PointT>::Ptr cloud_filtered, trunks_filtered, cloud_filtered2, cloud_filtered3, transformed_cloud, final_cloud; // (new pcl::PointCloud<PointT>)
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr trunks_colored, final_colored_cloud;
+    pcl::PointCloud<PointT>::Ptr cloud_filtered, trunks_filtered, cloud_filtered3, transformed_cloud, final_cloud, cloud_projected, centroids_projected; // (new pcl::PointCloud<PointT>)
+    pcl::PointCloud<PointT>::Ptr cloud_filtered2 (new pcl::PointCloud<PointT>);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr trunks_colored, final_colored_cloud, circles_colored;
 
     
     
@@ -75,7 +81,7 @@ int main (int argc, char** argv)
     
     
     // ########## GROUND REMOVAL ##########
-    cloud_filtered2 = remove_ground(cloud_filtered);
+    remove_ground(cloud_filtered, cloud_filtered2, coefficients_plane);
     if(cloud_filtered2->empty())
         return(-1);
     
@@ -108,10 +114,56 @@ int main (int argc, char** argv)
     
     
     
-    // ########## KMEANS CLUSTERING ##########
-    std::vector< pcl::Kmeans::Point > centroids(num_clusters);
+    // ########## CLOUD PROJECTION ##########
+    cloud_projected = cloud_projection (cloud_filtered2, coefficients_plane);
+     
+    std::cout << "PointCloud after Cloud Projection has: " << cloud_projected->points.size () << " data points." << std::endl;
+    writer.write ("cloud_projected.pcd", *cloud_projected, true); // the boolean flag is for binary (true) or ASCII (false) file format 
+    
+    
+    
+    // ########## KMEANS CENTROIDS COMPUTATION ##########   
+    std::vector< pcl::Kmeans::Point > centroids(num_clusters);  // REMOVE num_clusters ?
     centroids = kmeans_centroids_computation(trunks_filtered, trunks_clusters_indices);
     
+    
+    // ########## CENTROIDS PROJECTION ##########
+    pcl::PointCloud<PointT>::Ptr centroids_cloud (new pcl::PointCloud<PointT>);
+
+    // Fill in the cloud data
+    centroids_cloud->width    = num_clusters;
+    centroids_cloud->height   = 1;
+    centroids_cloud->is_dense = true;
+    centroids_cloud->points.resize (centroids_cloud->width * centroids_cloud->height);
+
+    for (size_t i = 0; i < centroids_cloud->points.size (); ++i)
+    {
+        centroids_cloud->points[i].x = centroids[i].at(0);
+        centroids_cloud->points[i].y = centroids[i].at(1);
+        centroids_cloud->points[i].z = centroids[i].at(2);
+        centroids_cloud->points[i].intensity = 0.0f;
+    } 
+     
+    centroids_projected = cloud_projection (centroids_cloud, coefficients_plane);        
+    
+    std::cout << "PointCloud after Centroids Cloud Projection has: " <<  centroids_projected->points.size () << " data points." << std::endl;
+    writer.write ("centroids_projected.pcd", *centroids_projected, true); // the boolean flag is for binary (true) or ASCII (false) file format 
+    
+    
+    
+    // ########## RADIUS SEARCH ##########    
+    std::vector<pcl::PointIndices> circle_clusters_indices (num_clusters);
+    circle_clusters_indices = cluster_radius_search (cloud_projected, centroids_projected);    
+    
+    circles_colored = getColoredCloud(*cloud_projected, circle_clusters_indices, num_clusters);
+    
+    std::cout << "PointCloud representing the circles clusters: " <<  circles_colored->points.size () << " data points." << std::endl;
+    writer.write ("circles_colored.pcd", *circles_colored, true); // the boolean flag is for binary (true) or ASCII (false) file format
+    
+    
+   
+    /*
+    // ########## KMEANS CLUSTERING ##########    
     std::vector<pcl::PointIndices> plants_clusters_indices (num_clusters);
     plants_clusters_indices = cluster_kmeans(final_cloud, centroids);
     final_colored_cloud = getColoredCloud(*final_cloud, plants_clusters_indices, num_clusters);
@@ -130,14 +182,6 @@ int main (int argc, char** argv)
     extract.setInputCloud (final_colored_cloud);
     visu = new pcl::visualization::PCLVisualizer (argc, argv, "Bound boxes Viewer");  
     
-    std::vector<std::string> cloud_names(num_clusters); 
-    for (int i=0; i<num_clusters; i++)     
-       cloud_names[i] = "cloud"+ std::to_string(i);
-       
-    std::vector<std::string> cube_names(num_clusters); 
-    for (int i=0; i<num_clusters; i++)     
-       cube_names[i] = "cube"+ std::to_string(i);
-    
     int counter=0;
     // Iterate till the end of the vector of clusters
     while (it_1 != plants_clusters_indices.end())
@@ -153,7 +197,7 @@ int main (int argc, char** argv)
         extract.setIndices (cluster_indices);
         extract.setNegative (false);
         extract.filter (*cloud_cluster);
-        boundingBox(cloud_cluster, visu, cloud_names[counter], cube_names[counter]);       
+        boundingBox(cloud_cluster, visu, counter);       
         it_1++;
         counter++;
     }
@@ -163,6 +207,7 @@ int main (int argc, char** argv)
     while (!visu->wasStopped ()) { // Display the visualiser until 'q' key is pressed
         visu->spinOnce ();
     }
+    */
     
    
     return (0);
@@ -174,7 +219,70 @@ int main (int argc, char** argv)
 
 
 
-void boundingBox(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudSegmented, pcl::visualization::PCLVisualizer *visu, const std::string& cloud_name, const std::string& cube_name)
+// ########## RADIUS SEARCH ########## 
+std::vector<pcl::PointIndices> cluster_radius_search (pcl::PointCloud<PointT>::Ptr cloud_projected, pcl::PointCloud<PointT>::Ptr centroids_projected)
+{   
+    pcl::KdTreeFLANN<PointT> kdtree;
+    kdtree.setInputCloud (cloud_projected);
+    size_t num_clusters = centroids_projected->points.size();
+    std::vector<std::vector<int>> pointIdxRadiusSearchClusters (num_clusters);
+    std::vector<std::vector<float>> pointRadiusSquaredDistanceClusters (num_clusters);
+    
+    // Neighbors within radius search
+    int i = 0;
+    for (pcl::PointCloud<PointT>::iterator cloud_iterator = centroids_projected->begin (); cloud_iterator != centroids_projected->end (); cloud_iterator++)
+    {
+        
+        PointT searchPoint;
+
+        searchPoint.x = cloud_iterator->x;
+        searchPoint.y = cloud_iterator->y;
+        searchPoint.z = cloud_iterator->z;
+        searchPoint.intensity = cloud_iterator->intensity;
+    
+        float radius = 0.2f;
+
+        kdtree.radiusSearch (searchPoint, radius, pointIdxRadiusSearchClusters[i], pointRadiusSquaredDistanceClusters[i]); // some clusters can overlap
+        
+        i++;
+    }
+    
+    std::vector<pcl::PointIndices> circle_clusters_indices (num_clusters);
+    for (size_t i = 0; i < num_clusters; i++)
+    {
+            std::vector<int>::iterator it = pointIdxRadiusSearchClusters[i].begin();
+ 
+            // Iterate till the end of vector
+            while (it != pointIdxRadiusSearchClusters[i].end())
+            {
+                circle_clusters_indices[i].indices.push_back(static_cast<int>(*it));
+                it++;
+            }
+    }  
+    
+    return(circle_clusters_indices);
+}
+
+
+
+// ########## CLOUD PROJECTION ##########
+pcl::PointCloud<PointT>::Ptr cloud_projection (pcl::PointCloud<PointT>::Ptr input, pcl::ModelCoefficients::Ptr coefficients)
+{
+    pcl::PointCloud<PointT>::Ptr cloud_projected (new pcl::PointCloud<PointT>);
+    pcl::ProjectInliers<PointT> proj;
+    
+    proj.setModelType (pcl::SACMODEL_PLANE);
+    proj.setInputCloud (input);
+    proj.setModelCoefficients (coefficients);
+    proj.filter (*cloud_projected);
+    
+    return(cloud_projected);
+}
+
+
+
+// ########## BOUNDING BOXES ##########
+void boundingBox(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudSegmented, pcl::visualization::PCLVisualizer *visu, int counter)
 {
     // Compute principal directions
     Eigen::Vector4f pcaCentroid;
@@ -200,8 +308,8 @@ void boundingBox(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudSegmented, pcl::vis
     const Eigen::Quaternionf bboxQuaternion(eigenVectorsPCA); //Quaternions are a way to do rotations https://www.youtube.com/watch?v=mHVwd8gYLnI
     const Eigen::Vector3f bboxTransform = eigenVectorsPCA * meanDiagonal + pcaCentroid.head<3>();
     
-    visu->addPointCloud(cloudSegmented, cloud_name);
-    visu->addCube(bboxTransform, bboxQuaternion, maxPoint.x - minPoint.x, maxPoint.y - minPoint.y, maxPoint.z - minPoint.z, cube_name);
+    visu->addPointCloud(cloudSegmented, "cloud" + std::to_string(counter));
+    visu->addCube(bboxTransform, bboxQuaternion, maxPoint.x - minPoint.x, maxPoint.y - minPoint.y, maxPoint.z - minPoint.z, "cube" + std::to_string(counter));
     //visu->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, cloud_name);
     //visu->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, cube_name); 
 }
@@ -364,8 +472,8 @@ std::vector<pcl::PointIndices> cluster_trunks (pcl::PointCloud<PointT>::Ptr inpu
     tree->setInputCloud (input);
 
     // Euclidean Cluster Extraction
-    ec.setClusterTolerance (0.07); // 7cm
-    ec.setMinClusterSize (250);
+    ec.setClusterTolerance (0.07);  // 7cm
+    ec.setMinClusterSize (100);     // this low threshold could be used to filter out small clusters
     ec.setMaxClusterSize (10000);
     ec.setSearchMethod (tree);
     ec.setInputCloud (input);
@@ -396,16 +504,15 @@ pcl::PointCloud<PointT>::Ptr filter_z (pcl::PointCloud<PointT>::Ptr input)
 
 
 // ########## GROUND REMOVAL ##########
-pcl::PointCloud<PointT>::Ptr remove_ground (pcl::PointCloud<PointT>::Ptr input)
+void remove_ground (pcl::PointCloud<PointT>::Ptr input, pcl::PointCloud<PointT>::Ptr output, pcl::ModelCoefficients::Ptr coefficients_plane)
 {
     pcl::NormalEstimation<PointT, pcl::Normal> ne;
     pcl::search::KdTree<PointT>::Ptr tree (new pcl::search::KdTree<PointT> ());
     pcl::PointCloud<pcl::Normal>::Ptr cloud_ground_normals (new pcl::PointCloud<pcl::Normal>);
     pcl::SACSegmentationFromNormals<PointT, pcl::Normal> seg; 
-    pcl::ModelCoefficients::Ptr coefficients_plane (new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers_plane (new pcl::PointIndices);
     pcl::ExtractIndices<PointT> extract;
-    pcl::PointCloud<PointT>::Ptr cloud_ground (new pcl::PointCloud<PointT> ()), output (new pcl::PointCloud<PointT>);
+    pcl::PointCloud<PointT>::Ptr cloud_ground (new pcl::PointCloud<PointT> ());
     pcl::PCDWriter writer;
 
     
@@ -429,7 +536,6 @@ pcl::PointCloud<PointT>::Ptr remove_ground (pcl::PointCloud<PointT>::Ptr input)
     if (inliers_plane->indices.size () == 0)
     { 
         PCL_ERROR ("Could not estimate a planar model for the given dataset.");
-        return(output);
     }
     std::cout << "Plane coefficients: " << *coefficients_plane << std::endl;
 
@@ -446,8 +552,6 @@ pcl::PointCloud<PointT>::Ptr remove_ground (pcl::PointCloud<PointT>::Ptr input)
     // Remove the planar inliers, extract the rest
     extract.setNegative (true);
     extract.filter (*output);
-    
-    return(output);    
 }
 
 
@@ -484,16 +588,17 @@ pcl::PointCloud<PointT>::Ptr filter (pcl::PointCloud<PointT>::Ptr input)
     pass.setFilterFieldName ("intensity");
     pass.setNegative (false);
     pass.setFilterLimits (600, FLT_MAX);
-    pass.filter (*indices);
+    pass.filter (*output);
     //pass.setIndices (indices);
     
     // Create the outlier filtering object
-    pcl::StatisticalOutlierRemoval<PointT> sor;
+    // this filter could remove lower parts of some trunks so it has been disabled
+    /*pcl::StatisticalOutlierRemoval<PointT> sor;
     sor.setInputCloud (input);
     sor.setIndices (indices);
     sor.setMeanK (100);
     sor.setStddevMulThresh (1.0);
-    sor.filter (*output);
+    sor.filter (*output);*/
     
     return(output);
 }
