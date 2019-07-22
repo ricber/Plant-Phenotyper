@@ -21,7 +21,7 @@
 
 typedef pcl::PointXYZI PointT;
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr getColoredCloud (pcl::PointCloud<PointT>& input, std::vector <pcl::PointIndices>& clusters, std::size_t num_clusters);
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr getColoredCloud (pcl::PointCloud<PointT>& input, std::vector <pcl::PointIndices>& clusters);
 pcl::PointCloud<PointT>::Ptr filter (pcl::PointCloud<PointT>::Ptr input);
 void remove_ground (pcl::PointCloud<PointT>::Ptr input, pcl::PointCloud<PointT>::Ptr output, pcl::ModelCoefficients::Ptr coefficients_plane);
 pcl::PointCloud<PointT>::Ptr filter_z (pcl::PointCloud<PointT>::Ptr input);
@@ -32,7 +32,8 @@ pcl::PointCloud<PointT>::Ptr transform (pcl::PointCloud<PointT>::Ptr input);
 void visualize (pcl::PointCloud<PointT>::Ptr source_cloud, pcl::PointCloud<PointT>::Ptr transformed_cloud);
 void boundingBox(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudSegmented, pcl::visualization::PCLVisualizer *visu, int counter);
 pcl::PointCloud<PointT>::Ptr cloud_projection (pcl::PointCloud<PointT>::Ptr input, pcl::ModelCoefficients::Ptr coefficients);
-std::vector<pcl::PointIndices> cluster_radius_search (pcl::PointCloud<PointT>::Ptr cloud_projected, pcl::PointCloud<PointT>::Ptr centroids_projected);
+std::vector<pcl::PointIndices> cluster_radius_search (pcl::PointCloud<PointT>::Ptr cloud_projected, pcl::PointCloud<PointT>::Ptr centroids_projected, std::vector<std::vector<int>> &pointIdxRadiusSearchClusters, std::vector<std::vector<float>> &pointRadiusSquaredDistanceClusters);
+pcl::PointCloud<PointT>::Ptr variance_filtering(std::vector<std::vector<float>> &pointRadiusSquaredDistanceClusters, std::vector<pcl::PointIndices> &circle_clusters_indices, pcl::PointCloud<PointT>::Ptr cloud_filtered2, std::vector< pcl::Kmeans::Point > &centroids, std::vector<pcl::Kmeans::Point> &centroids_filtered);
 
 
 
@@ -47,8 +48,8 @@ int main (int argc, char** argv)
     
     // Datasets
     pcl::PointCloud<PointT>::Ptr cloud (new pcl::PointCloud<PointT>);
-    pcl::PointCloud<PointT>::Ptr cloud_filtered, trunks_filtered, cloud_filtered3, transformed_cloud, final_cloud, cloud_projected, centroids_projected; // (new pcl::PointCloud<PointT>)
-    pcl::PointCloud<PointT>::Ptr cloud_filtered2 (new pcl::PointCloud<PointT>);
+    pcl::PointCloud<PointT>::Ptr cloud_filtered, trunks_filtered, transformed_cloud, final_cloud, cloud_projected, centroids_projected; // (new pcl::PointCloud<PointT>)
+    pcl::PointCloud<PointT>::Ptr cloud_filtered2 (new pcl::PointCloud<PointT>), cloud_filtered3 (new pcl::PointCloud<PointT>);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr trunks_colored, final_colored_cloud, circles_colored;
 
     
@@ -90,12 +91,8 @@ int main (int argc, char** argv)
     
     
     
-    final_cloud = cloud_filtered2;
-    
-    
-    
     // ########## Z FILTERING: TRUNKS ##########
-    trunks_filtered = filter_z (final_cloud);
+    trunks_filtered = filter_z (cloud_filtered2);
     
     std::cout << "PointCloud after Z filtering has: " << trunks_filtered->points.size () << " data points." << std::endl;
     writer.write ("trunks_filtered.pcd", *trunks_filtered, true); // the boolean flag is for binary (true) or ASCII (false) file format
@@ -107,7 +104,7 @@ int main (int argc, char** argv)
     
     // color cloud with different colors for each cluster
     std::size_t num_clusters = trunks_clusters_indices.size();
-    trunks_colored = getColoredCloud (*trunks_filtered, trunks_clusters_indices, num_clusters);
+    trunks_colored = getColoredCloud (*trunks_filtered, trunks_clusters_indices);
     
     std::cout << "PointCloud after Euclidean Cluster Extraction has: " << trunks_colored->points.size () << " data points." << std::endl;
     writer.write ("trunks_colored.pcd", *trunks_colored, true); // the boolean flag is for binary (true) or ASCII (false) file format
@@ -152,21 +149,36 @@ int main (int argc, char** argv)
     
     
     // ########## RADIUS SEARCH ##########    
+    std::vector<std::vector<int>> pointIdxRadiusSearchClusters (num_clusters);
+    std::vector<std::vector<float>> pointRadiusSquaredDistanceClusters (num_clusters);
     std::vector<pcl::PointIndices> circle_clusters_indices (num_clusters);
-    circle_clusters_indices = cluster_radius_search (cloud_projected, centroids_projected);    
+    circle_clusters_indices = cluster_radius_search (cloud_projected, centroids_projected, pointIdxRadiusSearchClusters, pointRadiusSquaredDistanceClusters);    
     
-    circles_colored = getColoredCloud(*cloud_projected, circle_clusters_indices, num_clusters);
+    circles_colored = getColoredCloud(*cloud_projected, circle_clusters_indices);
     
     std::cout << "PointCloud representing the circles clusters: " <<  circles_colored->points.size () << " data points." << std::endl;
     writer.write ("circles_colored.pcd", *circles_colored, true); // the boolean flag is for binary (true) or ASCII (false) file format
     
     
+    
+    // ########## VARIANCE FILTERING ########## 
+    std::vector<pcl::Kmeans::Point> centroids_filtered;
+    cloud_filtered3 = variance_filtering(pointRadiusSquaredDistanceClusters, circle_clusters_indices, cloud_filtered2, centroids, centroids_filtered);
+
+    
+    std::cout << "PointCloud after Variance Filtering has: " <<  cloud_filtered3->points.size () << " data points." << std::endl;
+    writer.write ("cloud_filtered3.pcd", *cloud_filtered3, true); // the boolean flag is for binary (true) or ASCII (false) file format
+    
+    
+    
+    final_cloud = cloud_filtered3;
+    
+    
    
-    /*
     // ########## KMEANS CLUSTERING ##########    
-    std::vector<pcl::PointIndices> plants_clusters_indices (num_clusters);
-    plants_clusters_indices = cluster_kmeans(final_cloud, centroids);
-    final_colored_cloud = getColoredCloud(*final_cloud, plants_clusters_indices, num_clusters);
+    std::vector<pcl::PointIndices> plants_clusters_indices (centroids_filtered.size());
+    plants_clusters_indices = cluster_kmeans(final_cloud, centroids_filtered);
+    final_colored_cloud = getColoredCloud(*final_cloud, plants_clusters_indices);
     
     std::cout << "PointCloud representing the kmeans plants clusters: " << final_colored_cloud->points.size () << " data points." << std::endl;
     writer.write ("final_colored_cloud.pcd", *final_colored_cloud, true); // the boolean flag is for binary (true) or ASCII (false) file format
@@ -207,7 +219,7 @@ int main (int argc, char** argv)
     while (!visu->wasStopped ()) { // Display the visualiser until 'q' key is pressed
         visu->spinOnce ();
     }
-    */
+
     
    
     return (0);
@@ -219,14 +231,62 @@ int main (int argc, char** argv)
 
 
 
+// ########## VARIANCE FILTERING ########## 
+pcl::PointCloud<PointT>::Ptr variance_filtering(std::vector<std::vector<float>> &pointRadiusSquaredDistanceClusters, std::vector<pcl::PointIndices> &circle_clusters_indices, pcl::PointCloud<PointT>::Ptr cloud_filtered2, std::vector< pcl::Kmeans::Point > &centroids, std::vector<pcl::Kmeans::Point> &centroids_filtered)
+{
+    pcl::PointCloud<PointT>::Ptr output (new pcl::PointCloud<PointT>);
+    float circle_variance;
+    const float circvar_thr = 0.0115f;
+    pcl::ExtractIndices<PointT> extract;
+    std::set<int> indices_set;
+    size_t num_clusters = circle_clusters_indices.size();
+    
+    
+    for (int i=0; i < num_clusters; i++)
+    {
+        for (std::vector<float>::iterator iterator = pointRadiusSquaredDistanceClusters[i].begin(); iterator != pointRadiusSquaredDistanceClusters[i].end(); iterator++)
+        {
+            circle_variance += *iterator;
+        }
+        
+        circle_variance /= pointRadiusSquaredDistanceClusters[i].size();
+        
+        std::cout << "Variance of circle cluster #" <<  std::to_string(i+1) << " is: " << std::to_string(circle_variance) << std::endl;
+        
+        if (circle_variance < circvar_thr)
+        {
+            for (std::vector<int>::iterator index = circle_clusters_indices[i].indices.begin(); index != circle_clusters_indices[i].indices.end(); index++)
+            {
+                indices_set.insert(*index);
+            }
+        }
+        else
+        {
+            centroids_filtered.push_back(centroids[i]);
+        }        
+    }
+    
+    pcl::PointIndices::Ptr pi_ptr (new pcl::PointIndices);
+    std::vector<int> indices_vector(indices_set.begin(), indices_set.end());
+    pi_ptr->indices = indices_vector;
+    extract.setInputCloud(cloud_filtered2);
+    extract.setNegative(true);
+    extract.setIndices(pi_ptr);
+    extract.filter(*output);
+    
+    return(output);
+}
+
+
+
 // ########## RADIUS SEARCH ########## 
-std::vector<pcl::PointIndices> cluster_radius_search (pcl::PointCloud<PointT>::Ptr cloud_projected, pcl::PointCloud<PointT>::Ptr centroids_projected)
+std::vector<pcl::PointIndices> cluster_radius_search (pcl::PointCloud<PointT>::Ptr cloud_projected, pcl::PointCloud<PointT>::Ptr centroids_projected, std::vector<std::vector<int>> &pointIdxRadiusSearchClusters, std::vector<std::vector<float>> &pointRadiusSquaredDistanceClusters)
 {   
     pcl::KdTreeFLANN<PointT> kdtree;
     kdtree.setInputCloud (cloud_projected);
     size_t num_clusters = centroids_projected->points.size();
-    std::vector<std::vector<int>> pointIdxRadiusSearchClusters (num_clusters);
-    std::vector<std::vector<float>> pointRadiusSquaredDistanceClusters (num_clusters);
+    
+    
     
     // Neighbors within radius search
     int i = 0;
@@ -240,7 +300,7 @@ std::vector<pcl::PointIndices> cluster_radius_search (pcl::PointCloud<PointT>::P
         searchPoint.z = cloud_iterator->z;
         searchPoint.intensity = cloud_iterator->intensity;
     
-        float radius = 0.2f;
+        float radius = 0.22f;
 
         kdtree.radiusSearch (searchPoint, radius, pointIdxRadiusSearchClusters[i], pointRadiusSquaredDistanceClusters[i]); // some clusters can overlap
         
@@ -291,8 +351,12 @@ void boundingBox(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudSegmented, pcl::vis
     pcl::computeCovarianceMatrixNormalized(*cloudSegmented, pcaCentroid, covariance);
     Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigen_solver(covariance, Eigen::ComputeEigenvectors);
     Eigen::Matrix3f eigenVectorsPCA = eigen_solver.eigenvectors();
-    eigenVectorsPCA.col(2) = eigenVectorsPCA.col(0).cross(eigenVectorsPCA.col(1));  // This line is necessary for proper orientation in some cases. The numbers come out the same without it, but
-                                                                                    //   the signs are different and the box doesn't get correctly oriented in some cases.
+    // This line is necessary for proper orientation in some cases. The numbers come out the same without it, but
+    // the signs are different and the box doesn't get correctly oriented in some cases.
+    //eigenVectorsPCA.col(2) = eigenVectorsPCA.col(0).cross(eigenVectorsPCA.col(1));  
+    //eigenVectorsPCA.col(2) =  Eigen::Vector3f::UnitZ(); // actually I am not sure the Z component is always in the third column
+    eigenVectorsPCA =  Eigen::Matrix3f::Identity();                                                                            
+                                                                                   
     // Transform the original cloud to the origin where the principal components correspond to the axes.
     Eigen::Matrix4f projectionTransform(Eigen::Matrix4f::Identity());
     projectionTransform.block<3,3>(0,0) = eigenVectorsPCA.transpose();
@@ -588,26 +652,27 @@ pcl::PointCloud<PointT>::Ptr filter (pcl::PointCloud<PointT>::Ptr input)
     pass.setFilterFieldName ("intensity");
     pass.setNegative (false);
     pass.setFilterLimits (600, FLT_MAX);
-    pass.filter (*output);
+    pass.filter (*indices);
     //pass.setIndices (indices);
     
     // Create the outlier filtering object
     // this filter could remove lower parts of some trunks so it has been disabled
-    /*pcl::StatisticalOutlierRemoval<PointT> sor;
+    pcl::StatisticalOutlierRemoval<PointT> sor;
     sor.setInputCloud (input);
     sor.setIndices (indices);
     sor.setMeanK (100);
-    sor.setStddevMulThresh (1.0);
-    sor.filter (*output);*/
+    sor.setStddevMulThresh (1.3);
+    sor.filter (*output);
     
     return(output);
 }
 
 
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr getColoredCloud (pcl::PointCloud<PointT>& input, std::vector <pcl::PointIndices>& clusters, std::size_t num_clusters)
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr getColoredCloud (pcl::PointCloud<PointT>& input, std::vector <pcl::PointIndices>& clusters)
 {
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cloud;
+    std::size_t num_clusters = clusters.size();
     
     if (!clusters.empty ())
     {
