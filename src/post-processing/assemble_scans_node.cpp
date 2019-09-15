@@ -57,11 +57,11 @@ int main(int argc, char **argv)
         if (client.call(srv)) {
             pointcloud2 = srv.response.cloud;
             pub.publish (pointcloud2);
-            pointcloud2.fields[3].name = "intensity"; // to solve the ERROR: Failed to find match for field 'intensity'.
+            ROS_INFO("Got cloud with %u points\n", pointcloud2.row_step*pointcloud2.height);
+            pointcloud2.fields[3].name = "intensity"; // to solve the error "ERROR: Failed to find match for field 'intensity'."
             // Convert the sensor_msgs/PointCloud2 data to pcl/PointCloud
             pcl::fromROSMsg (pointcloud2, pcl_cloud); // here the ERROR
-            pcl::io::savePCDFileBinaryCompressed("src/Plant-Phenotyper/src/post-processing/" + iso_time_str + ".pcd", pcl_cloud);
-            ROS_INFO("Got cloud with %u points\n", pointcloud2.row_step*pointcloud2.height);
+            pcl::io::savePCDFileBinaryCompressed(iso_time_str + ".pcd", pcl_cloud);
         }
         else
             ROS_ERROR("Service call failed\n");

@@ -56,7 +56,7 @@ int main (int argc, char** argv)
     
     // Read in the cloud data
     reader.read ("input.pcd", *cloud);
-    std::cout << "Input PointCloud has: " << cloud->points.size () << " data points." << std::endl;
+    std::cout << "PointCloud has: " << cloud->points.size () << " data points." << std::endl;
 
 
 
@@ -408,6 +408,36 @@ void visualize (pcl::PointCloud<PointT>::Ptr source_cloud, pcl::PointCloud<Point
     }
 }
 
+
+
+// ########## AFFINE TRANSFORMATION ########## 
+pcl::PointCloud<PointT>::Ptr transform (pcl::PointCloud<PointT>::Ptr input) 
+{
+    Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+    pcl::PointCloud<PointT>::Ptr output (new pcl::PointCloud<PointT>);
+
+    
+    float theta = -M_PI/15; // The angle of rotation in radians
+
+    // Define a translation of 2.5 meters on the x axis.
+    transform.translation() << 0.0, -1.5, 0.0;
+
+    // The same rotation matrix as before; theta radians around Z axis
+    transform.rotate (Eigen::AngleAxisf (theta, Eigen::Vector3f::UnitZ()));
+
+    // Print the transformation
+    printf ("\nTransformation matrix using an Affine3f:\n");
+    std::cout << transform.matrix() << std::endl;
+
+    // Executing the transformation
+    pcl::transformPointCloud (*input, *output, transform);
+    
+    
+    return(output);    
+}
+
+
+
 // ########## KMEANS CLUSTERING COMPUTATION ##########
 std::vector<pcl::PointIndices> cluster_kmeans (pcl::PointCloud<PointT>::Ptr input, std::vector<pcl::Kmeans::Point> &centroids)
 {
@@ -507,8 +537,8 @@ std::vector<pcl::PointIndices> cluster_trunks (pcl::PointCloud<PointT>::Ptr inpu
     tree->setInputCloud (input);
 
     // Euclidean Cluster Extraction
-    ec.setClusterTolerance (0.08);  // 7 cm
-    ec.setMinClusterSize (60);     // this low threshold could be used to filter out small clusters
+    ec.setClusterTolerance (0.07);  // 7cm
+    ec.setMinClusterSize (100);     // this low threshold could be used to filter out small clusters
     ec.setMaxClusterSize (10000);
     ec.setSearchMethod (tree);
     ec.setInputCloud (input);
@@ -526,11 +556,11 @@ pcl::PointCloud<PointT>::Ptr filter_z (pcl::PointCloud<PointT>::Ptr input)
     pcl::PointCloud<PointT>::Ptr output (new pcl::PointCloud<PointT>);
 
     
-    // remove point up and dwon a certain interval on z-axis
+    // remove ground points and points above the plants
     pass.setInputCloud (input);
     pass.setFilterFieldName ("z");
     pass.setNegative (false);
-    pass.setFilterLimits (-1, -0.15); // z levels at which section the plants point cloud for isolating lower parts of trunks and poles
+    pass.setFilterLimits (-0.7, -0.17);
     pass.filter (*output);
     
     return(output);
@@ -564,7 +594,7 @@ void remove_ground (pcl::PointCloud<PointT>::Ptr input, pcl::PointCloud<PointT>:
     seg.setNormalDistanceWeight (0.1);
     seg.setMethodType (pcl::SAC_RANSAC);
     seg.setMaxIterations (100);
-    seg.setDistanceThreshold (0.35); // the distance from the model to be considered an inlier
+    seg.setDistanceThreshold (0.17);
     seg.setInputCloud (input);
     seg.setInputNormals (cloud_ground_normals);
     // Obtain the plane inliers and coefficients
@@ -591,6 +621,7 @@ void remove_ground (pcl::PointCloud<PointT>::Ptr input, pcl::PointCloud<PointT>:
 }
 
 
+
 // ########## FILTERING ##########
 pcl::PointCloud<PointT>::Ptr filter (pcl::PointCloud<PointT>::Ptr input)
 {
@@ -602,21 +633,20 @@ pcl::PointCloud<PointT>::Ptr filter (pcl::PointCloud<PointT>::Ptr input)
     pass.setInputCloud (input);
     pass.setFilterFieldName ("x");
     pass.setNegative (false);
-    pass.setFilterLimits (-28.7, -1);
+    pass.setFilterLimits (-30.0, -1.0);
+    pass.filter (*indices);
+    pass.setIndices (indices);
+    
+    // remove lateral points outside the vineyard row
+    pass.setFilterFieldName ("y");
+    pass.setFilterLimits (-4.0, 2.0);
     pass.filter (*indices);
     pass.setIndices (indices);
     
     // remove the central points of the lidar trace
     pass.setFilterFieldName ("y");
     pass.setNegative (true);
-    pass.setFilterLimits (-0.2, 0);
-    pass.filter (*indices);
-    pass.setIndices (indices);
-    
-    // remove lateral points outside the vineyard row
-    pass.setFilterFieldName ("y");
-    pass.setNegative (false);
-    pass.setFilterLimits (-2., 2.0);
+    pass.setFilterLimits (-1.5, 0.0);
     pass.filter (*indices);
     pass.setIndices (indices);
 
@@ -624,53 +654,19 @@ pcl::PointCloud<PointT>::Ptr filter (pcl::PointCloud<PointT>::Ptr input)
     pass.setFilterFieldName ("intensity");
     pass.setNegative (false);
     pass.setFilterLimits (600, FLT_MAX);
-    pass.filter (*output);
+    pass.filter (*indices);
     //pass.setIndices (indices);
     
     // Create the outlier filtering object
     // this filter could remove lower parts of some trunks so it has been disabled
-    /*pcl::StatisticalOutlierRemoval<PointT> sor;
+    pcl::StatisticalOutlierRemoval<PointT> sor;
     sor.setInputCloud (input);
     sor.setIndices (indices);
     sor.setMeanK (100);
     sor.setStddevMulThresh (1.3);
-    sor.filter (*output);*/
+    sor.filter (*output);
     
     return(output);
-}
-
-
-
-// ########## AFFINE TRANSFORMATION ########## 
-pcl::PointCloud<PointT>::Ptr transform (pcl::PointCloud<PointT>::Ptr input) 
-{
-    Eigen::Affine3f transform = Eigen::Affine3f::Identity();
-    pcl::PointCloud<PointT>::Ptr output (new pcl::PointCloud<PointT>);
-
-
-    // Define a translation of 0.0 meters on the y axis.
-    transform.translation() << 0.0, 0.0, 0.0;
-    
-    /*
-    float thetaY = M_PI/300; // The angle of rotation in radians
-    transform.rotate (Eigen::AngleAxisf (thetaY, Eigen::Vector3f::UnitY()));
-    */
-    
-    
-    float thetaZ = M_PI/70; // The angle of rotation in radians
-    // The same rotation matrix as before; theta radians around Z axis
-    transform.rotate (Eigen::AngleAxisf (thetaZ, Eigen::Vector3f::UnitZ()));
-    
-
-    // Print the transformation
-    printf ("\nTransformation matrix using an Affine3f:\n");
-    std::cout << transform.matrix() << std::endl;
-
-    // Executing the transformation
-    pcl::transformPointCloud (*input, *output, transform);
-    
-    
-    return(output);    
 }
 
 

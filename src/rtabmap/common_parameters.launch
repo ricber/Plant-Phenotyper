@@ -25,7 +25,7 @@
 	<arg name="database_path"                   default="~/.ros/rtabmap.db"/>
 	<arg name="queue_size"                      default="10"/>
 	<arg name="wait_for_transform_duration"     default="0.3"/>
-	<arg name="args"                            default="-d --udebug"/>                  <!-- delete_db_on_start, udebug -->
+	<arg name="args"                            default="-d"/>                  <!-- delete_db_on_start (-d), udebug (- - udebug) -->
 	<arg name="launch_prefix"                   default=""/>                    <!-- for debugging purpose, it fills launch-prefix tag of the nodes -->
 	<arg name="output"                          default="screen"/>              <!-- Control node output (screen or log) -->
 	<arg name="publish_tf"				        default="true" /> 			    <!-- publish TF from /map to /odom -->
@@ -54,10 +54,13 @@
 	<!-- <arg name="rgb_image_transport"        default="compressed"/> -->        <!-- Common types: compressed, theora (see "rosrun image_transport list_transports") -->
 	<!-- <arg name="depth_image_transport"      default="compressedDepth"/> -->     <!-- Depth compatible types: compressedDepth (see "rosrun image_transport list_transports") -->
 	
+ <!-- ICP odometry parameters -->
 	<arg name="subscribe_scan"                  default="false"/>
 	<arg name="scan_topic"                      default="/scan"/>               <!-- Do not provide /scan and /cloud topics at the same time! -->
 	<arg name="subscribe_scan_cloud"            default="false"/>
-	<arg name="scan_cloud_topic"                default="/_cloud"/>
+	<arg name="scan_cloud_topic"                default="/cloud"/>
+    <arg name="scan_voxel_size"                 default="0.0"/>
+    <arg name="scan_downsampling_step"          default="1"/>
 	<arg name="scan_normal_k"                   default="0"/>
     <arg name="scan_normal_radius"              default="0.0"/>
  
@@ -75,36 +78,46 @@
 	<arg name="odom_guess_frame_id"        	    default=""/>
 	<arg name="odom_guess_min_translation" 	    default="0"/>
 	<arg name="odom_guess_min_rotation"    	    default="0"/> 
+    <arg name="publish_null_when_lost"          default="true"/>
 	
  <!-- RTAB-MAP's parameters -->
-	<arg name="Reg/Strategy"             		default="0"/>   		<!--  0=Vis, 1=Icp, 2=VisIcp -->
-	<arg name="Odom/Strategy"            		default="0"/>			<!--  0=Frame-to-Map (F2M) 1=Frame-to-Frame (F2F) 2=Fovis 3=viso2 4=DVO-SLAM 5=ORB_SLAM2 6=OKVIS 7=LOAM 8=MSCKF_VIO ; IF "Reg/Strategy"=1, then 0=S2M and 1=S2S) -->
-	<arg name="Icp/PointToPlane"         		default="false"/>    	<!--  Use point to plane ICP -->
-    <arg name="Icp/MaxTranslation"		 	    default="2" />    		<!--  Maximum ICP translation correction accepted (m) -->
-	<arg name="Icp/MaxRotation"		     	    default="2" />			<!--  Maximum ICP rotation correction accepted (rad) -->
-	<arg name="Icp/CorrespondenceRatio"         default="0.1" />        <!--  Ratio of matching correspondences to accept the transform -->
-    <arg name="Grid/FromDepth"		     	    default="true" />		<!--  Create occupancy grid from depth image(s), otherwise it is created from laser scan -->
-	<arg name="Icp/PM"                          default="false"/>       <!--  Use libpointmatcher for ICP registration instead of PCL's implementation -->
-    <arg name="Grid/3D"		     		        default="true" />		<!--  A 3D occupancy grid is required if you want an OctoMap (3D ray tracing). Set to false if you want only a 2D map, the cloud will be projected on xy plane. A 2D map can be still generated if checked, but it requires more memory and time to generate it. Ignored if laser scan is 2D and "Grid/FromDepth" is false. -->
-	<arg name="Grid/RayTracing"		     	    default="false" />		<!--  Ray tracing is done for each occupied cell, filling unknown space between the sensor and occupied cells. If "Grid/3D"=true, RTAB-Map should be built with OctoMap support, otherwise 3D ray tracing is ignored. -->
-	<arg name="RGBD/NeighborLinkRefining" 		default="true" />
-	<arg name="RGBD/ProximityBySpace"     		default="true" />
-	<arg name="RGBD/AngularUpdate"        		default="0.01" />
-	<arg name="RGBD/LinearUpdate"         		default="0.01" />
-	<arg name="RGBD/OptimizeFromGraphEnd" 		default="false" />
-	<arg name="RGBD/OptimizeMaxError" 	  	    default="1" />
-	<arg name="RGBD/ProximityPathMaxNeighbors" 	default="10"/>			<!-- Maximum neighbor nodes compared on each path. Set to 0 to disable merging the laser scans -->
-	<arg name="Reg/Force3DoF"             		default="false" />
-    <arg name="Vis/MaxFeatures"                 default="1500" />
-	<arg name="Vis/MinInliers"            		default="20" />         <!-- Minimum feature correspondences to compute/accept the transformation -->
-    <arg name="Vis/EstimationType"       	    default="1" />          <!-- Motion estimation approach: 0:3D->3D, 1:3D->2D (PnP), 2:2D->2D (Epipolar Geometry) -->
-    <arg name="Vis/PnPReprojError"              default="4" />          <!-- PnP reprojection error -->
-    <arg name="Kp/MaxFeatures"                  default="750" />        <!-- keypoint memory for loop closure. Maximum features extracted from the images (0 means not bounded, <0 means no extraction). Adjust in relation to Vis/MaxFeatures (should be half of it approximately) -->
-	<arg name="Rtabmap/TimeThr"            		default="200" />		<!-- Maximum time allowed for map update (ms) (0 means infinity). When map update time exceeds this fixed time threshold, some nodes in Working Memory (WM) are transferred to Long-Term Memory to limit the size of the WM and decrease the update time -->
-	<arg name="Rtabmap/MemoryThr"            	default="300" />		<!-- Maximum nodes in the Working Memory (0 means infinity). Similar to "Rtabmap/TimeThr ", when the number of nodes in Working Memory (WM) exceeds this treshold, some nodes are transferred to Long-Term Memory to keep WM size fixed -->
-	<arg name="Rtabmap/DetectionRate"       	default="2" />  		<!-- Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate. IF YOU CHANGE THIS PARAMETR CHANGE ALSO "Mem/STMSize" ACCORDINGLY, BECAUSE A HIGHER DETECTION RATE NEEDS A BIGGER STM BUFFER. e.g. 1Hz/15nodes 2Hz/30nodes -->
-	<arg name="Mem/STMSize"       			    default="30" />  		<!-- Short-term memory size. PAY ATTENTION: nodes in STM are not used for loop closure. So, this threshold should be increased only if the robot is moving fast -->
-	<arg name="Mem/RehearsalSimilarity"       	default="0.2" />  		<!-- Rehearsal similarity. -->
+	<arg name="Reg/Strategy"             		    default="0"/>   		<!--  0=Vis, 1=Icp, 2=VisIcp -->
+    <arg name="Reg/Force3DoF"             		    default="false" />
+    <arg name="Odom/Strategy"            		    default="0"/>			<!--  0=Frame-to-Map (F2M) 1=Frame-to-Frame (F2F) 2=Fovis 3=viso2 4=DVO-SLAM 5=ORB_SLAM2 6=OKVIS 7=LOAM 8=MSCKF_VIO ; IF "Reg/Strategy"=1, then 0=S2M and 1=S2S) -->
+	<arg name="Odom/Holonomic"            		    default="true"/>
+    <arg name="Odom/FilteringStrategy"              default="0"/>           <!--  0:Filtering disabled; 1: Kalman Filtering; 2: Particle Filtering-->
+    <arg name="Odom/ResetCountdown"                 default="0"/>
+    <arg name="OdomF2M/BundleAdjustment"            default="1"/>
+    <arg name="Icp/PointToPlane"         		    default="false"/>    	<!--  Use point to plane ICP -->
+    <arg name="Icp/MaxTranslation"		 	        default="0.2" />    	<!--  Maximum ICP translation correction accepted (m) -->
+	<arg name="Icp/MaxRotation"		     	        default="0.78" />		<!--  Maximum ICP rotation correction accepted (rad) -->
+	<arg name="Icp/CorrespondenceRatio"             default="0.1" />        <!--  Ratio of matching correspondences to accept the transform -->
+    <arg name="Icp/PM"                              default="false"/>       <!--  Use libpointmatcher for ICP registration instead of PCL's implementation -->
+    <arg name="Icp/RangeMax"                        default="0"/>           <!-- Maximum range filtering (0=disabled). -->
+    <arg name="Grid/FromDepth"		     	        default="true" />		<!--  Create occupancy grid from depth image(s), otherwise it is created from laser scan -->
+    <arg name="Grid/3D"		     		            default="true" />		<!--  A 3D occupancy grid is required if you want an OctoMap (3D ray tracing). Set to false if you want only a 2D map, the cloud will be projected on xy plane. A 2D map can be still generated if checked, but it requires more memory and time to generate it. Ignored if laser scan is 2D and "Grid/FromDepth" is false. -->
+	<arg name="Grid/RayTracing"		     	        default="false" />		<!--  Ray tracing is done for each occupied cell, filling unknown space between the sensor and occupied cells. If "Grid/3D"=true, RTAB-Map should be built with OctoMap support, otherwise 3D ray tracing is ignored. -->
+	<arg name="RGBD/NeighborLinkRefining" 		    default="true" />
+	<arg name="RGBD/ProximityBySpace"     		    default="true" />
+	<arg name="RGBD/AngularUpdate"        		    default="0.1" />
+	<arg name="RGBD/LinearUpdate"         		    default="0.1" />
+	<arg name="RGBD/OptimizeFromGraphEnd" 		    default="false" />
+	<arg name="RGBD/OptimizeMaxError" 	  	        default="3.0" />
+	<arg name="RGBD/ProximityPathMaxNeighbors" 	    default="0"/>			<!-- Maximum neighbor nodes compared on each path. Set to 0 to disable merging the laser scans -->
+    <arg name="Vis/MaxFeatures"                     default="1000" />
+	<arg name="Vis/MinInliers"            		    default="20" />         <!-- Minimum feature correspondences to compute/accept the transformation -->
+    <arg name="Vis/EstimationType"       	        default="1" />          <!-- Motion estimation approach: 0:3D->3D, 1:3D->2D (PnP), 2:2D->2D (Epipolar Geometry) -->
+    <arg name="Vis/PnPReprojError"                  default="2" />          <!-- PnP reprojection error -->
+    <arg name="Vis/FeatureType"                     default="6" />          <!-- 0: SURF ; 6:GFTT/BRIEF -->
+    <arg name="Vis/MaxDepth"                        default="0" />
+    <arg name="Vis/MinDepth"                        default="0" />
+    <arg name="Kp/MaxFeatures"                      default="500" />        <!-- keypoint memory for loop closure. Maximum features extracted from the images (0 means not bounded, <0 means no extraction). Adjust in relation to Vis/MaxFeatures (should be half of it approximately) -->
+	<arg name="Rtabmap/TimeThr"            		    default="0" />		    <!-- (200) Maximum time allowed for map update (ms) (0 means infinity). When map update time exceeds this fixed time threshold, some nodes in Working Memory (WM) are transferred to Long-Term Memory to limit the size of the WM and decrease the update time -->
+	<arg name="Rtabmap/MemoryThr"            	    default="0" />		    <!-- (300) Maximum nodes in the Working Memory (0 means infinity). Similar to "Rtabmap/TimeThr ", when the number of nodes in Working Memory (WM) exceeds this treshold, some nodes are transferred to Long-Term Memory to keep WM size fixed -->
+	<arg name="Rtabmap/DetectionRate"       	    default="4" />  		<!-- Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate. IF YOU CHANGE THIS PARAMETR CHANGE ALSO "Mem/STMSize" ACCORDINGLY, BECAUSE A HIGHER DETECTION RATE NEEDS A BIGGER STM BUFFER. e.g. 1Hz/15nodes 2Hz/30nodes -->
+	<arg name="Rtabmap/StartNewMapOnLoopClosure"    default="false" />
+    <arg name="Mem/STMSize"       			        default="60" />  		<!-- Short-term memory size. PAY ATTENTION: nodes in STM are not used for loop closure. So, this threshold should be increased only if the robot is moving fast -->
+	<arg name="Mem/RehearsalSimilarity"       	    default="0.6" />  		<!-- Rehearsal similarity. -->
     
     
     
@@ -161,19 +174,36 @@
             <param name="guess_frame_id"                type="string"   value="$(arg odom_guess_frame_id)"/>
             <param name="guess_min_translation"         type="double"   value="$(arg odom_guess_min_translation)"/>
             <param name="guess_min_rotation"            type="double"   value="$(arg odom_guess_min_rotation)"/>
+            <param name="wait_for_transform_duration"   type="double"   value="$(arg wait_for_transform_duration)"/>
+            <param name="publish_null_when_lost"        type="bool"     value="$(arg publish_null_when_lost)"/>
+
             
+            <param name="Reg/Force3DoF"             	type="bool"     value="$(arg Reg/Force3DoF)"/>
             <param name="Vis/PnPReprojError"            type="double"   value="$(arg Vis/PnPReprojError)" />
+            <param name="Vis/MaxFeatures"               type="int"      value="$(arg Vis/MaxFeatures)" />
+            <param name="Vis/MinInliers"                type="string"   value="$(arg Vis/MinInliers)"/>
+            <param name="Vis/EstimationType"       	    type="int"      value="$(arg Vis/EstimationType)" /> 
+            <param name="Vis/FeatureType"               type="int"      value="$(arg Vis/FeatureType)"/> 
+            <param name="Vis/MaxDepth"                  type="double"   value="$(arg Vis/MaxDepth)" />
+            <param name="Vis/MinDepth"                  type="double"   value="$(arg Vis/MinDepth)" /> 
+            <param name="Odom/Strategy"             	type="int"      value="$(arg Odom/Strategy)"/> 
+            <param name="Odom/Holonomic"            	type="bool"	    value="$(arg Odom/Holonomic)"/>
+            <param name="Odom/FilteringStrategy"        type="int"      value="$(arg Odom/FilteringStrategy)"/>
+            <param name="Odom/ResetCountdown"           type="int"      value="$(arg Odom/ResetCountdown)" />
+            <param name="OdomF2M/BundleAdjustment"          type="int"      value="$(arg OdomF2M/BundleAdjustment)" />
+
         </node>
         
         
         
         <!-- ICP Odometry -->
         <node if="$(arg icp_odometry)" pkg="rtabmap_ros" type="icp_odometry" name="icp_odometry" output="$(arg output)" args="$(arg args) $(arg odom_args)" launch-prefix="$(arg launch_prefix)">
-            <remap from="scan"                          to="$(arg scan_topic)"/>
-            <remap from="scan_cloud"                    to="$(arg scan_cloud_topic)"/>
-            <remap from="odom"                          to="$(arg odom_topic_pub)"/>
+            <remap if="$(arg subscribe_scan)"               from="scan"                          to="$(arg scan_topic)"/>
+            <remap unless="$(arg subscribe_scan)"           from="scan"                          to="hutexjeohndrgthvf"/>   <!-- the random name is necessary as there is no way to disable the subscription to the topic -->
+            <remap if="$(arg subscribe_scan_cloud)"         from="scan_cloud"                    to="$(arg scan_cloud_topic)"/>
+            <remap unless="$(arg subscribe_scan_cloud)"     from="scan_cloud"                    to="jcbeyficnqjuxkifn"/>   <!-- the random name is necessary as there is no way to disable the subscription to the topic -->
+            <remap from="odom"                              to="$(arg odom_topic_pub)"/>
           
-            <param name="Reg/Strategy"                  type="string"   value="1"/> <!-- 1=ICP -->
             <param name="frame_id"                      type="string"   value="$(arg frame_id)"/>
             <param name="odom_frame_id"                 type="string"   value="$(arg vo_frame_id)"/>
             <param name="publish_tf"               	    type="bool"     value="$(arg odom_publish_tf)"/>
@@ -186,14 +216,25 @@
             <param name="guess_min_rotation"            type="double"   value="$(arg odom_guess_min_rotation)"/>
             <param name="scan_normal_k"                 type="int"      value="$(arg scan_normal_k)"/>
             <param name="scan_normal_radius"            type="double"   value="$(arg scan_normal_radius)"/>
+            <param name="wait_for_transform_duration"   type="double"   value="$(arg wait_for_transform_duration)"/>
+            <param name="publish_null_when_lost"        type="bool"     value="$(arg publish_null_when_lost)"/>
+            <param name="scan_voxel_size"               type="double"   value="$(arg scan_voxel_size)"/>
+            <param name="scan_downsampling_step"        type="int"      value="$(arg scan_downsampling_step)"/>
+
             
-            
+            <param name="Reg/Force3DoF"             		type="bool"     value="$(arg Reg/Force3DoF)"/>
+            <param name="Reg/Strategy"                      type="string"   value="1"/> <!-- 1=ICP -->
             <param name="Icp/PointToPlane"		  		    type="bool"     value="$(arg Icp/PointToPlane)" /> 
             <param name="Icp/PM" 	                        type="bool"     value="$(arg Icp/PM)"/>         <!-- Use libpointmatcher for ICP registration instead of PCL's implementation. -->
             <param name="Icp/MaxTranslation"		  		type="double"   value="$(arg Icp/MaxTranslation)" />
             <param name="Icp/MaxRotation"		      		type="double"   value="$(arg Icp/MaxRotation)" />
-            <param name="Icp/CorrespondenceRatio"           type="double"   value="$(arg Icp/CorrespondenceRatio)" />  
+            <param name="Icp/CorrespondenceRatio"           type="double"   value="$(arg Icp/CorrespondenceRatio)" /> 
+            <param name="Icp/RangeMax"                      type="double"   value="$(arg Icp/RangeMax)" />   
             <param name="Odom/Strategy"             		type="int"      value="$(arg Odom/Strategy)"/> 
+            <param name="Odom/Holonomic"            	    type="bool"	    value="$(arg Odom/Holonomic)"/>
+            <param name="Odom/FilteringStrategy"            type="int"      value="$(arg Odom/FilteringStrategy)"/>
+            <param name="Odom/ResetCountdown"               type="int"      value="$(arg Odom/ResetCountdown)" />
+            <param name="OdomF2M/BundleAdjustment"          type="int"      value="$(arg OdomF2M/BundleAdjustment)" />
 
         </node>
     
@@ -233,18 +274,16 @@
             <param name="RGBD/LinearUpdate"         		type="string"   value="$(arg RGBD/LinearUpdate)"/>
             <param name="RGBD/OptimizeFromGraphEnd" 		type="string"   value="$(arg RGBD/OptimizeFromGraphEnd)"/>
             <param name="RGBD/OptimizeMaxError" 	  		type="double"   value="$(arg RGBD/OptimizeMaxError)"/>
-            <param name="Reg/Strategy"              		type="int"      value="$(arg Reg/Strategy)"/> 
             <param name="Odom/Strategy"             		type="int"      value="$(arg Odom/Strategy)"/> 
+            <param name="Reg/Strategy"              		type="int"      value="$(arg Reg/Strategy)"/> 
             <param name="Reg/Force3DoF"             		type="string"   value="$(arg Reg/Force3DoF)"/>
-            <param name="Vis/MaxFeatures"                   type="int"      value="$(arg Vis/MaxFeatures)" />
-            <param name="Vis/MinInliers"            		type="string"   value="$(arg Vis/MinInliers)"/>
-            <param name="Vis/EstimationType"       	        type="int"      value="$(arg Vis/EstimationType)" /> 
             <param name="Kp/MaxFeatures"                    type="int"      value="$(arg Kp/MaxFeatures)" />
             <param name="Grid/FromDepth" 			  		type="bool"     value="$(arg Grid/FromDepth)"/>
             <param name="Grid/3D" 			      		    type="bool"     value="$(arg Grid/3D)"/>
             <param name="Rtabmap/TimeThr"            		type="double"	value="$(arg Rtabmap/TimeThr)" />			
             <param name="Rtabmap/MemoryThr"        		    type="int"		value="$(arg Rtabmap/MemoryThr)" />
-            <param name="Rtabmap/DetectionRate"       	    type="double"	value="$(arg Rtabmap/DetectionRate)" />  
+            <param name="Rtabmap/DetectionRate"       	    type="double"	value="$(arg Rtabmap/DetectionRate)" /> 
+            <param name="Rtabmap/StartNewMapOnLoopClosure"  type="bool"     value="$(arg Rtabmap/StartNewMapOnLoopClosure)" /> 
             <param name="Mem/RehearsalSimilarity"     	    type="double"  	value="$(arg Mem/RehearsalSimilarity)" /> 
             <param name="Mem/STMSize"       				type="int"		value="$(arg Mem/STMSize)" /> 	
             <param name="RGBD/ProximityPathMaxNeighbors" 	type="string" 	value="$(arg RGBD/ProximityPathMaxNeighbors)"/>	

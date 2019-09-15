@@ -6,6 +6,7 @@
     <arg name="d435_gps"                default="false" />
     <arg name="d435_ldmrs"              default="false" /> 
     <arg name="d435_lms100"             default="false" /> 
+    <arg name="d435_robotloc"           default="false" />
     <arg name="d435_gps_imu"            default="false" /> 
     <arg name="d435_imu_lms100"         default="false" />
     <arg name="d435_gps_lms100"         default="false" />
@@ -13,64 +14,102 @@
     <arg name="d435_gps_imu_lms100"     default="false" /> 
     
     
+    <!-- UP TO DATE -->
     <group if="$(arg d435)">
-        
+                
         <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
-            <arg name="wait_for_transform_duration"             value="0.3"/>
-            <arg name="subscribe_scan"                          value="true" />
-
-        </include>    
-        <!-- PARAMETERS OVERRIDE -->    
-        <param name="/rtabmap/rtabmap/Rtabmap/DetectionRate"       	        type="double"       value="2" />  		    <!-- Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate. IF YOU CHANGE THIS PARAMETR CHANGE ALSO "Mem/STMSize" ACCORDINGLY, BECAUSE A HIGHER DETECTION RATE NEEDS A BIGGER STM BUFFER. e.g. 1Hz/15nodes 2Hz/30nodes -->
-        <param name="/rtabmap/rtabmap/Mem/STMSize"       			        type="int"          value="30" />
-        <param name="/rtabmap/rtabmap/Vis/CorNNDR"                          type="double"       value="0.6" />
-        <param name="/rtabmap/rtabmap/Vis/MaxFeatures"                      type="int"          value="750" />
-        <param name="/rtabmap/rtabmap/OdomF2M/MaxSize"                      type="int"          value="2000" />         <!-- [Visual] Local map size: If > 0 (example 5000), the odometry will maintain a local map of X maximum words. -->
-        <param name="/rtabmap/rgbd_odometry/Vis/MinInliers"                 type="int"          value="12" />
-        <param name="/rtabmap/rtabmap/Reg/Strategy"                         type="int"          value="0" />
-        <param name="/rtabmap/rgbd_odometry/Reg/Force3DoF"                  type="bool"         value="false" />
-        <param name="/rtabmap/rtabmap/RGBD/NeighborLinkRefining" 		    type="bool"         value="false" />
-
-
+            <arg name="publish_null_when_lost"                  value="false"/>
+            <arg name="Vis/MaxDepth"                            value="6" />
+            <arg name="Vis/MinDepth"                            value="0.15" />
+            <arg name="Kp/MaxFeatures"                          value="-1" />                   <!-- Loop Closure disabled -->
+            <arg name="Odom/FilteringStrategy"                  value="1"/>                     <!--  0:Filtering disabled; 1: Kalman Filtering; 2: Particle Filtering-->
+            <!-- <arg name="Odom/Holonomic"            		value="false"/> -->
+            <arg name="Odom/ResetCountdown"                     value="5"/>
+            <arg name="Rtabmap/StartNewMapOnLoopClosure"        value="true" />
+        </include>
+               
+        <!-- PARAMETERS OVERRIDE --> 
+        <!-- <param name="/rtabmap/rgbd_odometry/Reg/Force3DoF"             	    type="bool"         value="true"/> -->
         
-        <!-- These two parameters are to reset odometry when lost -->
-        <param name="/rtabmap/rtabmap/Rtabmap/StartNewMapOnLoopClosure"     type="bool"         value="true" />
-        <param name="/rtabmap/rgbd_odometry/Odom/ResetCountdown"            type="int"          value="1" />
-        <!-- <param name="/rtabmap/rtabmap/Vis/MaxDepth"                 type="double"       value="3.0" /> -->
     </group>
     
     
+    <!-- UP TO DATE -->
+    <group if="$(arg d435_robotloc)">
+        
+        <include file="$(find plant-phenotyper)/src/robot_localization/only_odom_robot_localization.launch" />
+        
+        <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
+            <arg name="odom_topic_pub"                          value="odom_vis"/>                      <!-- Odometry topic name published by the odometry node (icp or visual) -->
+            <arg name="odom_topic_sub"                          value="/robot_loc_odom_vis"/>           <!-- Odometry topic name subscribed by rtabmap and rtabmapviz -->
+            <arg name="publish_tf"                              value="false" />
+            
+            <arg name="publish_null_when_lost"                  value="false"/>
+            <arg name="Vis/MaxDepth"                            value="6" />
+            <arg name="Vis/MinDepth"                            value="0.15" />
+            <arg name="Kp/MaxFeatures"                          value="-1" />                           <!-- Loop Closure disabled -->
+            <!-- <arg name="Odom/Holonomic"            		value="false"/> -->
+            <arg name="Odom/ResetCountdown"                     value="5"/>
+            <arg name="Rtabmap/StartNewMapOnLoopClosure"        value="true" />
+        </include>
+               
+    </group>
+    
+    
+    <!-- UP TO DATE -->
     <group if="$(arg d435_gps)">
         
          <!-- nucleo imu -->
         <include file="$(find plant-phenotyper)/src/nucleo_imu/nucleo_filter.launch" />
         
-        <include file="$(find plant-phenotyper)/src/robot_localization/gps_robot_localization.launch">
-                <arg name="two_d_mode"                          value="true" />
-        </include>
-        
+        <include file="$(find plant-phenotyper)/src/robot_localization/gps_robot_localization.launch" />
         
         <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
-            <arg name="wait_for_transform_duration"             value="0.3"/>
             <arg name="odom_topic_pub"                          value="odom_vis"/>                      <!-- Odometry topic name published by the odometry node (icp or visual) -->
-            <arg name="odom_topic_sub"                          value="/odom_vis_gps"/>                  <!-- Odometry topic name subscribed by rtabmap and rtabmapviz -->
+            <arg name="odom_topic_sub"                          value="/odom_vis_gps"/>                 <!-- Odometry topic name subscribed by rtabmap and rtabmapviz -->
             <arg name="publish_tf"                              value="false" />
+            
+            <arg name="publish_null_when_lost"                  value="false"/>
+            <arg name="Vis/MaxDepth"                            value="6.0" />
+            <arg name="Vis/MinDepth"                            value="0.15" />
+            <arg name="Kp/MaxFeatures"                          value="-1" />                   <!-- Loop Closure disabled -->
+            <!-- <arg name="Odom/Holonomic"            		value="false"/> -->
+            <arg name="Odom/ResetCountdown"                     value="5"/>
+            <arg name="Rtabmap/StartNewMapOnLoopClosure"        value="true" />
         </include>  
-        
-          
-        <!-- PARAMETERS OVERRIDE -->    
-        <param name="/rtabmap/rtabmap/Rtabmap/DetectionRate"       	        type="double"       value="2" />  		<!-- Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate. IF YOU CHANGE THIS PARAMETR CHANGE ALSO "Mem/STMSize" ACCORDINGLY, BECAUSE A HIGHER DETECTION RATE NEEDS A BIGGER STM BUFFER. e.g. 1Hz/15nodes 2Hz/30nodes -->
-        <param name="/rtabmap/rtabmap/Mem/STMSize"       			        type="int"          value="30" />
-        <param name="/rtabmap/rtabmap/Vis/CorNNDR"                          type="double"       value="0.6" />
-        <param name="/rtabmap/rtabmap/Vis/MaxFeatures"                      type="int"          value="750" />
-        <param name="/rtabmap/rtabmap/Reg/Force3DoF"                        type="bool"         value="true" />
-        
-        <param name="/rtabmap/rtabmap/Rtabmap/StartNewMapOnLoopClosure"     type="bool"         value="true" />
-        <param name="/rtabmap/rgbd_odometry/Odom/ResetCountdown"            type="int"          value="1" />
-        <!-- <param name="/rtabmap/rtabmap/Vis/MaxDepth"                 type="double"       value="3.0" /> -->
+    
     </group>
     
     
+    <!-- UP TO DATE -->
+    <group if="$(arg d435_imu)">
+        
+        <!-- nucleo imu -->
+        <include file="$(find plant-phenotyper)/src/nucleo_imu/nucleo_filter.launch" />
+        
+        <!-- realsense imu -->
+        <!-- <include file="$(find plant-phenotyper)/src/camera/rs_imu_filter.launch" /> -->
+        
+        <include file="$(find plant-phenotyper)/src/robot_localization/imu_robot_localization.launch" />
+        
+        <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
+            <arg name="odom_topic_pub"                          value="odom_vis"/>                      <!-- Odometry topic name published by the odometry node (icp or visual) -->
+            <arg name="odom_topic_sub"                          value="/odom_vis_imu"/>                 <!-- Odometry topic name subscribed by rtabmap and rtabmapviz -->
+            <arg name="publish_tf"                              value="false" />
+            
+            <arg name="publish_null_when_lost"                  value="false"/>
+            <arg name="Vis/MaxDepth"                            value="6" />
+            <arg name="Vis/MinDepth"                            value="0.15" />
+            <arg name="Kp/MaxFeatures"                          value="-1" />                   <!-- Loop Closure disabled -->
+            <!-- <arg name="Odom/Holonomic"            		value="false"/> -->
+            <arg name="Odom/ResetCountdown"                     value="5"/>
+            <arg name="Rtabmap/StartNewMapOnLoopClosure"        value="true" />
+        </include>  
+        
+    </group>
+    
+    
+    <!-- NEEDS REVIEW -->
     <group if="$(arg d435_lms100)">
         
         <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
@@ -91,28 +130,31 @@
     </group>
     
 
-    
+    <!-- UP TO DATE -->
     <group if="$(arg d435_ldmrs)">
         
         <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch">
             <arg name="visual_odometry"         	            value="false" />              
             <arg name="icp_odometry"             	            value="true" /> 
             <arg name="subscribe_scan_cloud"                    value="true" />
+            
+            <arg name="publish_null_when_lost"                  value="false"/>
+            <arg name="scan_voxel_size"                         value="0.04"/>
+            <!-- <arg name="scan_downsampling_step"                  value="1"/> --> <!-- integer value:     Downsample the laser scan or point cloud. <=1 means no downsampling, otherwise one ray/point each step is kept. -->
+            <arg name="Icp/CorrespondenceRatio"                 value="0.08" />                 <!--  Ratio of matching correspondences to accept the transform -->
+            <arg name="Icp/RangeMax"                            value="20"/>                     <!-- !!!!!!!!! SEEMS IT IS NOT SET !!!!!!!!! Maximum range filtering (0=disabled). -->
+            <arg name="OdomF2M/BundleAdjustment"                value="0"/>
+            <arg name="Odom/FilteringStrategy"                  value="1"/>                     <!--  0:Filtering disabled; 1: Kalman Filtering; 2: Particle Filtering-->
+            <!-- <arg name="Odom/Holonomic"            		         value="false"/> -->
+            <arg name="Odom/ResetCountdown"                     value="5"/>
+            <arg name="Kp/MaxFeatures"                          value="-1" />                   <!-- Loop Closure disabled -->
+            <arg name="Rtabmap/StartNewMapOnLoopClosure"        value="true" />
         </include>
-        <!-- PARAMETERS OVERRIDE -->
-        <param name="/rtabmap/rtabmap/Vis/MinInliers"                       type="int"          value="20" />
-        <param name="/rtabmap/rtabmap/RGBD/NeighborLinkRefining" 		    type="bool"         value="false" />
-        <param name="/rtabmap/icp_odometry/Icp/CorrespondenceRatio"         type="double"       value="0.008" />    <!-- 0.05 -->
-        <param name="/rtabmap/rtabmap/Reg/Strategy"                         type="int"          value="0" />
-
-        <!-- 
-        <param name="/rtabmap/rtabmap/Rtabmap/StartNewMapOnLoopClosure"     type="bool"         value="true" />
-        <param name="/rtabmap/rgbd_odometry/Odom/ResetCountdown"            type="int"          value="1" />
-        -->
+        
     </group>
     
     
-    
+    <!-- NEEDS REVIEW -->
     <group if="$(arg d435_imu_lms100)">
         
         <!-- nucleo imu -->
@@ -132,7 +174,7 @@
     </group>
     
     
-    
+    <!-- NEEDS REVIEW -->
     <group if="$(arg d435_gps_lms100)">
         <node pkg="imu_repub" type="imu_repub_node" name="imu_repub_node" required="true" />
         
@@ -164,17 +206,22 @@
     </group>
     
     
-    
+    <!-- NEEDS REVIEW -->
     <group if="$(arg d435_gps_imu_lms100)">
         
-        <node pkg="imu_repub" type="imu_repub_node" name="imu_repub_node" required="true" />
-		
+        <!-- <node pkg="imu_repub" type="imu_repub_node" name="imu_repub_node" required="true" /> -->
+        
         <!-- nucleo imu -->
-        <include file="$(find plant-phenotyper)/src/nucleo_imu/nucleo_filter.launch">
+        <!-- <include file="$(find plant-phenotyper)/src/nucleo_imu/nucleo_filter.launch">
              <arg name="imu_data_topic"                         value="f746zg_imu/data_cov" />
-        </include>
+        </include> -->
+        
+        <!-- nucleo imu -->
+        <include file="$(find plant-phenotyper)/src/nucleo_imu/nucleo_filter.launch" />
             
-        <include file="$(find plant-phenotyper)/src/robot_localization/imu_gps_robot_localization.launch" />
+        <include file="$(find plant-phenotyper)/src/robot_localization/imu_gps_robot_localization.launch">
+             <arg name="two_d_mode"                          value="true" />
+        </include>
         
         <include file="$(find plant-phenotyper)/src/rtabmap/common_parameters.launch" >
             <!-- ARGUMENTS OVERRIDE -->

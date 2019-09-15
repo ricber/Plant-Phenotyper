@@ -2,8 +2,8 @@
 <!-- robot_localization -->	
 <launch>
 
-        <arg name="two_d_mode"                          default="false" />
-        <arg name="navsat_odom_topic"                   default="/rtabmap/odom_vis" />
+        <arg name="two_d_mode"                          default="true" />
+        <arg name="rtabmap_odom_topic"                  default="/rtabmap/odom_vis" />
         <arg name="gps_odom_topic"                      default="/odom_vis_gps" />
         <arg name="gps_accel_topic"                     default="/accel_vis_gps" />
   
@@ -46,13 +46,13 @@
         <param name="odom0_relative" value="false"/>
         
         
-        <param name="odom1" value="$(arg navsat_odom_topic)"/>		
-        <rosparam param="odom1_config">[true,true,true,
+        <param name="odom1" value="$(arg rtabmap_odom_topic)"/>		
+        <rosparam param="odom1_config">[false,false,false,
+                                        false,false,false,
                                         true,true,true,
                                         true,true,true,
-                                        true,true,true,
-                                        true,true,true]</rosparam>
-        <param name="odom1_differential" value="true"/>
+                                        false,false,false]</rosparam>
+        <param name="odom1_differential" value="false"/>
         <param name="odom1_relative" value="false"/>
     </node>	
 </launch>
