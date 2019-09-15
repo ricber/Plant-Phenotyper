@@ -1,2 +1,2 @@
 # Plant-Phenotyper
-A SLAM approach for plant phenotyping
+A modular software architecture for Automatic Plant Phenotyping
